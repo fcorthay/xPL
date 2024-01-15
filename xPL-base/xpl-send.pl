@@ -95,7 +95,7 @@ if ($xpl_source !~ m/\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z/) {
 #-------------------------------------------------------------------------------
 # test xPL target tag
 #
-if ($xpl_target !~ m/\A((\w|\d)+|\*)-((\w|\d)+|\*)\.((\w|\d)+|\*)\Z/) {
+if ($xpl_target !~ m/\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z/) {
   if ($xpl_target ne '*') {
     die "\"$xpl_target\" is not a valid xPL target indentifier.\n";
   }

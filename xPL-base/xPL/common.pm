@@ -93,14 +93,14 @@ sub xpl_trim_instance_name {
 }
 
 #-------------------------------------------------------------------------------
-# Open an UDP socket to the xPL hub
+# Open a broadcast UDP socket to the xPL hub
 #
 sub xpl_open_socket {
   my ($xpl_port, $client_base_port) = @_;
-                                                      # start on base port port
+                                                       # start on base port port
   my $client_port = $client_base_port;
   my $xpl_socket;
-                                                             # open a free port
+                                                              # open a free port
   while (!$xpl_socket && $client_port < $client_base_port+1000) {
     $xpl_socket = IO::Socket::INET->new(
       Broadcast => 1,
@@ -113,6 +113,7 @@ sub xpl_open_socket {
       $client_port = $client_port + 1;
     }
   }
+                                               # end script if no available port
   die "Could not create socket: $!\n" unless $xpl_socket;
 
   return ($client_port, $xpl_socket);
