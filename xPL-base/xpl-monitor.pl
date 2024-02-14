@@ -8,11 +8,9 @@ use Time::HiRes qw(time);
 ################################################################################
 # constants
 #
-$xpl_port = 3865;
 $vendor_id = 'dspc';             # from xplproject.org
 $device_id = 'monitor';          # max 8 chars
 #$class_id = 'monitor';           # max 8 chars
-$instance_name_length = 16;      # max 16 chars
 
 $separator = '-' x 80;
 $indent = ' ' x 2;
@@ -35,7 +33,7 @@ die("\n".
     "${indent}-p port the base UDP port\n".
     "${indent}-n id   the instance id (max. 16 chars)\n".
     "${indent}-t mins the heartbeat interval in minutes\n".
-    "${indent}-f      filter hbeat.app messages\n".
+    "${indent}-f      filter \"hbeat.app\" messages\n".
     "${indent}-d      display delay between messages\n".
     "\n".
     "Monitors xPL messages.\n".
@@ -51,53 +49,6 @@ my $heartbeat_interval = $opts{'t'} || 5;
 
 my $filter_heartbeats = $opts{'f'};
 my $display_delay = $opts{'d'};
-
-
-################################################################################
-# Internal functions
-#
-
-#-------------------------------------------------------------------------------
-# Trim instance name to valid characters and max length
-#
-sub trim_instance_name {
-	my ($instance_name) = @_;
-                                                    # replace invalid characters
-	$instance_name =~ s/(-|\.|!|;)//g;
-                                                            # trim to max length
-	if (length($instance_name) > $instance_name_length) {
-		$instance_name = substr($instance_name, 0, $instance_name_length);
-	}
-
-	return $instance_name;
-}
-
-
-#-------------------------------------------------------------------------------
-# Open an UDP socket to the xPL hub
-#
-sub open_xpl_socket {
-	my ($xpl_port, $client_base_port) = @_;
-                                                      # start on base port port
-  my $client_port = $client_base_port;
-  my $xpl_socket;
-                                                             # open a free port
-  while (!$xpl_socket && $client_port < $client_base_port+1000) {
-    $xpl_socket = IO::Socket::INET->new(
-      Broadcast => 1,
-      PeerPort => $xpl_port,
-      LocalPort => $client_port,
-      Proto     => 'udp'
-    );
-
-    if (!$xpl_socket) {
-      $client_port = $client_port + 1;
-    }
-  }
-  die "Could not create socket: $!\n" unless $xpl_socket;
-
-  return ($client_port, $xpl_socket);
-}
 
 
 ################################################################################
@@ -120,7 +71,7 @@ my $xpl_ip = xpl_find_ip;
 #-------------------------------------------------------------------------------
 # create xPL socket
 #
-my ($client_port, $xpl_socket) = open_xpl_socket($xpl_port, $client_base_port);
+my ($client_port, $xpl_socket) = xpl_open_socket($xpl_port, $client_base_port);
 if ($verbose > 0) {
   system("clear");
   print "$separator\n";
@@ -162,6 +113,9 @@ while ( (defined($xpl_socket)) && ($end == 0) ) {
   }
 }
 
+#-------------------------------------------------------------------------------
+# delete xPL socket
+#
 xpl_disconnect($xpl_socket, $xpl_id, $xpl_ip, $client_port);
 
 

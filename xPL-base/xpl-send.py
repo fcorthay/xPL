@@ -40,9 +40,7 @@ parser.add_argument(
                                                                 # message source
 parser.add_argument(
     '-s', '--source', default="%s-%s.%s"%(
-        VENDOR_ID,
-        DEVICE_ID, 
-        common.xpl_trim_instance_name(common.xpl_build_automatic_instance_id())
+        VENDOR_ID, DEVICE_ID, common.xpl_build_automatic_instance_id()
     ),
     help = 'xPL message source (vendor_id-device_id.instance_id)'
 )

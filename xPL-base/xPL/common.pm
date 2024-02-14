@@ -16,11 +16,11 @@ $VERSION = 1.00;
   $xpl_port $instance_name_length
   $xpl_end
   &xpl_find_ip
+  &xpl_trim_instance_name
   &xpl_build_automatic_instance_id
   &xpl_build_id
-  &xpl_trim_instance_name
   &xpl_open_socket
-  &xpl_send_braodcast
+  &xpl_send_broadcast
   &xpl_send_message
   &xpl_get_message_elements
   &xpl_is_only_for_me &xpl_is_for_me
@@ -54,30 +54,6 @@ sub xpl_find_ip {
 }
 
 #-------------------------------------------------------------------------------
-# Build automatic instance name
-#
-sub xpl_build_automatic_instance_id {
-
-  my $host_name = Sys::Hostname::hostname;
-  my $automatic_instance_id = substr($host_name, 0, $instance_name_length);
-
-  return $automatic_instance_id;
-}
-
-#-------------------------------------------------------------------------------
-# Build xPL id
-#
-sub xpl_build_id {
-	my ($vendor_id, $device_id, $instance_id) = @_;
-
-  my $xpl_id = $vendor_id . '-' .
-               $device_id . '.' .
-               xpl_trim_instance_name($instance_id);
-
-  return $xpl_id;
-}
-
-#-------------------------------------------------------------------------------
 # Trim instance name to valid characters and max length
 #
 sub xpl_trim_instance_name {
@@ -90,6 +66,30 @@ sub xpl_trim_instance_name {
   }
 
   return $instance_name;
+}
+
+#-------------------------------------------------------------------------------
+# Build automatic instance name
+#
+sub xpl_build_automatic_instance_id {
+
+  my $host_name = Sys::Hostname::hostname;
+  my $automatic_instance_id = xpl_trim_instance_name($host_name);
+
+  return $automatic_instance_id;
+}
+
+#-------------------------------------------------------------------------------
+# Build xPL id
+#
+sub xpl_build_id {
+  my ($vendor_id, $device_id, $instance_id) = @_;
+
+  my $xpl_id = $vendor_id . '-' .
+               $device_id . '.' .
+               xpl_trim_instance_name($instance_id);
+
+  return $xpl_id;
 }
 
 #-------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ sub xpl_open_socket {
 #-------------------------------------------------------------------------------
 # Send UDP message to broadcast address
 #
-sub xpl_send_braodcast {
+sub xpl_send_broadcast {
 	my ($xpl_socket, $xpl_port, $message) = @_;
                                                         # send broadcast message
   my $ipaddr   = INADDR_BROADCAST;
@@ -155,7 +155,7 @@ sub xpl_send_message {
   $message .= "}\n";
 #print "$message\n";
                                                               # send xPL message
-  xpl_send_braodcast($xpl_socket, $xpl_port, $message);
+  xpl_send_broadcast($xpl_socket, $xpl_port, $message);
 }
 
 #-------------------------------------------------------------------------------

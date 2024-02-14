@@ -1,6 +1,7 @@
 import socket
 import sys
 import re
+import time
 
 # ------------------------------------------------------------------------------
 # constants
@@ -8,9 +9,13 @@ import re
 XPL_PORT = 3865
 INSTANCE_NAME_LENGTH = 16; # instance names have max. 16 chars
 
+TCP_BUFFER_SIZE = 1024
+
+
 # ==============================================================================
 # Exported functions: utilities
 #
+
 # ------------------------------------------------------------------------------
 # find machine IP address
 #
@@ -19,17 +24,6 @@ def xpl_find_ip(host_name='localhost') :
     xpl_ip = socket.gethostbyname(host_name)
 
     return xpl_ip;
-
-# ------------------------------------------------------------------------------
-# build automatic instance name
-#
-def xpl_build_automatic_instance_id() :
-                                                                # find host name
-    host_name = socket.gethostname()
-                                                          # limit to max. length
-    automatic_instance_id = host_name[:INSTANCE_NAME_LENGTH]
-
-    return(automatic_instance_id)
 
 # ------------------------------------------------------------------------------
 # trim instance name to valid characters and max length
@@ -42,6 +36,28 @@ def xpl_trim_instance_name(instance_name) :
 
     return(trimmed_instance_name);
 
+# ------------------------------------------------------------------------------
+# build automatic instance name
+#
+def xpl_build_automatic_instance_id() :
+                                                                # find host name
+    host_name = socket.gethostname()
+                                                          # limit to max. length
+    automatic_instance_id = xpl_trim_instance_name(host_name)
+
+    return(automatic_instance_id)
+
+#-------------------------------------------------------------------------------
+# build xPL id
+#
+def xpl_build_id (vendor_id, device_id, instance_id) :
+
+  xpl_id =                              \
+    vendor_id + '-' +                   \
+    device_id + '.' +                   \
+    xpl_trim_instance_name(instance_id)
+
+  return xpl_id;
 
 #-------------------------------------------------------------------------------
 # Open a broadcast UDP socket to the xPL hub
@@ -56,6 +72,7 @@ def xpl_open_socket(xpl_port, client_base_port) :
         try :
             xpl_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             xpl_socket.bind(('', client_port))
+            xpl_socket.setblocking(0)
             found = True
         except :
             client_port = client_port + 1
@@ -69,8 +86,7 @@ def xpl_open_socket(xpl_port, client_base_port) :
 #-------------------------------------------------------------------------------
 # Send UDP message to broadcast address
 #
-def xpl_send_braodcast (xpl_socket, xpl_port, message) :
-#    print(message)
+def xpl_send_broadcast (xpl_socket, xpl_port, message) :
                                                       # enable broadcasting mode
     xpl_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                                                         # send broadcast message
@@ -98,4 +114,64 @@ def xpl_send_message (
     message += "}\n";
 #    print(message)
                                                               # send xPL message
-    xpl_send_braodcast(xpl_socket, xpl_port, message)
+    xpl_send_broadcast(xpl_socket, xpl_port, message)
+
+# ==============================================================================
+# Exported functions: main program
+#
+
+#-------------------------------------------------------------------------------
+# Get new xPl message with timeout
+#
+def xpl_get_message(xpl_socket, timeout) :
+                                                    # read message from UDP port
+    xpl_socket.settimeout(timeout)
+    try:
+        (message, source_address) = xpl_socket.recvfrom(TCP_BUFFER_SIZE)
+        message = message.decode()
+    except socket.timeout:
+        message = ''
+        source_address = ''
+                                                                # return message
+    return (message, source_address)
+
+#-------------------------------------------------------------------------------
+# Check for elapsed time and send heartbeat
+#
+def xpl_send_heartbeat(
+    xpl_socket, xpl_id, xpl_ip, client_port,
+    heartbeat_interval, last_heartbeat_time
+) :
+                                                            # check elapsed time
+    elapsed_time = round((time.time() - last_heartbeat_time) / 60);
+#    print(elapsed_time)
+                                                        # send heartbeat message
+    if (elapsed_time >= heartbeat_interval) :
+        xpl_send_message(
+            xpl_socket, XPL_PORT,
+            'xpl-stat', xpl_id, '*', 'hbeat.app',
+            [
+                "interval=%d" % heartbeat_interval,
+                "remote-ip=%s" % xpl_ip,
+                "port=%d" % client_port
+            ]
+        )
+        last_heartbeat_time = time.time();
+                                                    # return last heartbeat time
+    return (last_heartbeat_time)
+
+#-------------------------------------------------------------------------------
+# Send disconnect (heartbeat) message
+#
+def xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port) :
+                                             # send disconnext heartbeat message
+    xpl_send_message(
+        xpl_socket, XPL_PORT,
+        'xpl-stat', xpl_id, '*', 'hbeat.end',
+        [
+            "remote-ip=%s" % xpl_ip,
+            "port=%d" % client_port
+        ]
+    );
+                                                                  # close socket
+    xpl_socket.close()
