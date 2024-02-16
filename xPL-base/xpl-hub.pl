@@ -124,7 +124,7 @@ if ($verbose > 0) {
   print("${indent}log file: $log_file\n");
   print("\n");
 }
-                                                          # start xPL UDP socket
+                                                 # start xPL UDP listener socket
 my $xpl_socket = IO::Socket::INET->new(
   Proto     => 'udp',
   LocalPort => $xpl_port,

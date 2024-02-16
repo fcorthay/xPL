@@ -9,7 +9,7 @@ import time
 XPL_PORT = 3865
 INSTANCE_NAME_LENGTH = 16; # instance names have max. 16 chars
 
-TCP_BUFFER_SIZE = 1024
+ETHERNET_BUFFER_SIZE = 1024
 
 
 # ==============================================================================
@@ -116,8 +116,39 @@ def xpl_send_message (
                                                               # send xPL message
     xpl_send_broadcast(xpl_socket, xpl_port, message)
 
+#-------------------------------------------------------------------------------
+# Get xPL message constituting elements
+#
+def xpl_get_message_elements(message) :
+                                                               # trim line feeds
+    message = message.replace("\r", "\n")
+    message = re.sub(r"\n+", "\n", message)
+  # $message =~ s/\n+/\n/g;
+                                                           # split into elements
+    (xpl_type, schema, body_string) = message.split('{', 3)
+    xpl_type = xpl_type.replace("\n", '').lower()
+    (source, schema) = schema.split('}', 2)
+    schema = schema.replace("\n", '').lower()
+                                                                # process header
+    source = source.lower()
+    target = source
+    source = source.split('source=', 1)[1]
+    source = source.split("\n", 1)[0]
+    target = target.split('target=', 1)[1]
+    target = target.split("\n", 1)[0]
+                                                                  # process body
+    body_string = body_string.split('}', 1)[0]
+    body_list = body_string.split("\n")
+    body_dict = {}
+    for element in body_list :
+        if '=' in element :
+            (parameter, value) = element.split('=', 2)
+            body_dict[parameter] = value
+                                                               # return elements
+    return (xpl_type, source, target, schema, body_dict)
+
 # ==============================================================================
-# Exported functions: main program
+# Exported functions for main programs
 #
 
 #-------------------------------------------------------------------------------
@@ -127,7 +158,7 @@ def xpl_get_message(xpl_socket, timeout) :
                                                     # read message from UDP port
     xpl_socket.settimeout(timeout)
     try:
-        (message, source_address) = xpl_socket.recvfrom(TCP_BUFFER_SIZE)
+        (message, source_address) = xpl_socket.recvfrom(ETHERNET_BUFFER_SIZE)
         message = message.decode()
     except socket.timeout:
         message = ''
