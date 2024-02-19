@@ -118,9 +118,9 @@ for element in message_body :
 if verbose :
     print(INDENT + "Sending %s" % message_body)
 common.xpl_send_message(
-  xpl_socket, common.XPL_PORT,
-  message_type, message_source, message_target, message_class,
-  body_dict
+    xpl_socket, common.XPL_PORT,
+    message_type, message_source, message_target, message_class,
+    body_dict
 );
                                                               # close xPL socket
 xpl_socket.close();

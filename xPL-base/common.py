@@ -181,11 +181,11 @@ def xpl_send_heartbeat(
         xpl_send_message(
             xpl_socket, XPL_PORT,
             'xpl-stat', xpl_id, '*', 'hbeat.app',
-            [
-                "interval=%d" % heartbeat_interval,
-                "remote-ip=%s" % xpl_ip,
-                "port=%d" % client_port
-            ]
+            {
+                'interval'  : heartbeat_interval,
+                'remote-ip' : xpl_ip,
+                'port'      : client_port
+            }
         )
         last_heartbeat_time = time.time();
                                                     # return last heartbeat time
@@ -199,10 +199,10 @@ def xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port) :
     xpl_send_message(
         xpl_socket, XPL_PORT,
         'xpl-stat', xpl_id, '*', 'hbeat.end',
-        [
-            "remote-ip=%s" % xpl_ip,
-            "port=%d" % client_port
-        ]
+        {
+            'remote-ip' : xpl_ip,
+            'port'      : client_port
+        }
     );
                                                                   # close socket
     xpl_socket.close()
