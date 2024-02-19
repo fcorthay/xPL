@@ -4,7 +4,7 @@ import sys
 import signal
 import os
 import time
-from xPL import common
+import common
 
 # ------------------------------------------------------------------------------
 # constants
@@ -113,6 +113,6 @@ while not end :
             delta = "%.3f" % (now - last_message_time)
             last_message_time = now
             print("Delta: %s second(s)" % delta)
-        print(xpl_message)
+        print(xpl_message.rstrip("\n"))
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)

@@ -4,7 +4,7 @@ use IO::Socket;
 use IO::Interface::Simple;
 use FindBin;                    # find the script's directory
 use lib $FindBin::Bin;          # add that directory to the library path
-use xPL::common;
+use common;
 
 
 my $separator = '-' x 80;

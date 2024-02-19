@@ -109,8 +109,8 @@ def xpl_send_message (
     message += "}\n";
     message += xpl_class + "\n";
     message += "{\n";
-    for parameter in body :
-        message += parameter + "\n";
+    for parameter in body.keys() :
+        message += "%s=%s\n" % (parameter, body[parameter]);
     message += "}\n";
 #    print(message)
                                                               # send xPL message

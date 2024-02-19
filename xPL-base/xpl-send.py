@@ -2,7 +2,7 @@
 import argparse
 import sys
 import re
-from xPL import common
+import common
 
 # ------------------------------------------------------------------------------
 # constants
@@ -108,13 +108,19 @@ if not re.search("\A(\w|\d)+\.(\w|\d)+\Z", message_class) :
 )
 if verbose :
     print(INDENT + "Started UDP socket on port %s" % client_port)
+                                                   # transform body list to dict
+body_dict = {}
+for element in message_body :
+    if '=' in element :
+        (parameter, value) = element.split('=', 2)
+        body_dict[parameter] = value
                                                                   # send message
 if verbose :
     print(INDENT + "Sending %s" % message_body)
 common.xpl_send_message(
   xpl_socket, common.XPL_PORT,
   message_type, message_source, message_target, message_class,
-  message_body
+  body_dict
 );
                                                               # close xPL socket
 xpl_socket.close();

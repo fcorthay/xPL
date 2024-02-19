@@ -1,4 +1,4 @@
-package xPL::common;
+package common;
 
 use IO::Socket;
 use IO::Select;

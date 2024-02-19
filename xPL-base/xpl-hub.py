@@ -7,7 +7,7 @@ import signal
 import os
 import time
 from datetime import datetime
-from xPL import common
+import common
 
 # ------------------------------------------------------------------------------
 # constants
