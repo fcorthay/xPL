@@ -201,7 +201,6 @@ sub xpl_is_only_for_me {
   if ($target eq $xpl_id) {
     $matches = 1;
   }
-                                                                    # read value
 
   return ($matches);
 }
@@ -213,7 +212,6 @@ sub xpl_is_for_me {
   if ( ($target eq $xpl_id) or ($target eq '*') ) {
     $matches = 1;
   }
-                                                                    # read value
 
   return ($matches);
 }

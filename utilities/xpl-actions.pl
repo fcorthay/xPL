@@ -61,9 +61,8 @@ $configuration{'baseDirectory'} = $opts{'d'} || $configuration{'baseDirectory'};
 # Internal functions
 #
 
-
 #-------------------------------------------------------------------------------
-# Receive an EIB telegram from the serial port client and forward to xPL
+# Execute a command together with its arguments
 #
 sub execute_command {
 
@@ -149,13 +148,15 @@ while ( (defined($xpl_socket)) && ($xpl_end == 0) ) {
   );
                                               # get xpl-UDP message with timeout
   my ($xpl_message) = xpl_get_message($xpl_socket, $timeout);
-                                                           # display XPL message
+                                                           # process XPL message
   if ($xpl_message) {
-    my ($type, $source, $target, $schema, %body) = xpl_get_message_elements($xpl_message);
-    if ( xpl_is_for_me($xpl_id, $target) ) {
-                                                              # process commands
-      if ($schema eq "$class_id.basic") {
+    my ($type, $source, $target, $schema, %body) = xpl_get_message_elements(
+      $xpl_message
+    );
+    if ($schema eq "$class_id.basic") {
+      if ( xpl_is_for_me($xpl_id, $target) ) {
         if ($type eq 'xpl-cmnd') {
+                                                               # process command
           if ($verbose > 0) {
             print("\n");
             print("Received command from \"$source\"\n");

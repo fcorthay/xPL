@@ -81,7 +81,7 @@ def xpl_open_socket(xpl_port, client_base_port) :
         print('Could not create xpl socket');
         sys.exit(1)
 
-    return (client_port, xpl_socket);
+    return(client_port, xpl_socket);
 
 #-------------------------------------------------------------------------------
 # Send UDP message to broadcast address
@@ -145,7 +145,26 @@ def xpl_get_message_elements(message) :
             (parameter, value) = element.split('=', 2)
             body_dict[parameter] = value
                                                                # return elements
-    return (xpl_type, source, target, schema, body_dict)
+    return(xpl_type, source, target, schema, body_dict)
+
+#-------------------------------------------------------------------------------
+# Check if xPL message is for the client
+#
+def xpl_is_only_for_me(xpl_id, target) :
+                                                            # check target field
+    matches = False
+    if target.lower() == xpl_id.lower() :
+        matches = True
+
+    return(matches)
+
+def xpl_is_for_me(xpl_id, target) :
+                                                            # check target field
+    matches = False
+    if (target.lower() == xpl_id.lower()) or (target == '*') :
+        matches = True
+
+    return(matches)
 
 # ==============================================================================
 # Exported functions for main programs
@@ -164,7 +183,7 @@ def xpl_get_message(xpl_socket, timeout) :
         message = ''
         source_address = ''
                                                                 # return message
-    return (message, source_address)
+    return(message, source_address)
 
 #-------------------------------------------------------------------------------
 # Check for elapsed time and send heartbeat
@@ -189,7 +208,7 @@ def xpl_send_heartbeat(
         )
         last_heartbeat_time = time.time();
                                                     # return last heartbeat time
-    return (last_heartbeat_time)
+    return(last_heartbeat_time)
 
 #-------------------------------------------------------------------------------
 # Send disconnect (heartbeat) message
