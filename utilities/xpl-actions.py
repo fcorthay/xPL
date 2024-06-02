@@ -54,7 +54,7 @@ parser.add_argument(
     default=os.path.dirname(os.path.realpath(__file__))+os.sep+'actions',
     help = 'the directory containing the action scripts'
 )
-                                                             # scripts directory
+                                                                      # log file
 parser.add_argument(
     '-l', '--logFile', default='/tmp/xpl-actions.log',
     help = 'the directory containing the action scripts'
