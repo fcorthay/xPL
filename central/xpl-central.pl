@@ -155,7 +155,9 @@ sub interpret_message {
     foreach my $name (keys(%fields)) {
       my $to_compare = $body{$name};
 #      $to_compare =~ s/\//./g;
-      $to_compare =~ s/ /\.x20/g; # allows '.x20' to replace ' ' in the xPL value field
+                                     # allow replacements in the xPL value field
+      $to_compare =~ s/ /\.x20/g;                          # '.x20' replaces ' '
+      $to_compare =~ s/\-/\.x2D/g;                         # '.x2D' replaces '-'
 #print "    $name -> $fields{$name}  <-> $to_compare \n";
       if ($fields{$name} ne $to_compare) {
         $matches = 0;
