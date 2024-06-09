@@ -133,7 +133,7 @@ while not end :
             print("Time is %s" % present_time)
         common.xpl_send_message(
             xpl_socket, common.XPL_PORT,
-            'xpl_stat', xpl_id, '*', "%s.tick" % CLASS_ID,
+            'xpl-stat', xpl_id, '*', "%s.tick" % CLASS_ID,
             {
                 'time' : present_time
             }
