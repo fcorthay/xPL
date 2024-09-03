@@ -32,7 +32,7 @@ parser.add_argument(
 )
                                                                   # message type
 parser.add_argument(
-    '-t', '--type', default='xpl-stat',
+    '-t', '--type', default='xpl-trig',
     help = 'xPL message type (cmnd, stat or trig)'
 )
                                                                 # message source
@@ -113,7 +113,7 @@ def build_HTML_reply(path, info) :
 def send_xPl_message(button_id, button_action) :
     message_body = {}
     message_body['hardware'] = 'myStrom'
-    message_body['id'] = button_id
+    message_body['id'] = button_id.replace(':', '').upper()
     message_body['action'] = button_action
 
     common.xpl_send_message(
