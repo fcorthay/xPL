@@ -4,6 +4,7 @@ import sys
 import signal
 import os
 import time
+from datetime import datetime
 sys.path.append(sys.path[0]+'/../xPL-base')
 import common
 
@@ -18,6 +19,7 @@ LOG_FILE_LENGTH = 100
 
 INDENT = '  '
 SEPARATOR = 80 * '-'
+SEPARATOR2 = 80 * '='
 
 # ------------------------------------------------------------------------------
 # command line arguments
@@ -57,7 +59,7 @@ parser.add_argument(
                                                                       # log file
 parser.add_argument(
     '-l', '--logFile', default='/tmp/xpl-actions.log',
-    help = 'the directory containing the action scripts'
+    help = 'the actions log file'
 )
                                                   # parse command line arguments
 parser_arguments = parser.parse_args()
@@ -102,7 +104,15 @@ def execute_command(command, body) :
                 "\n".join(log_file_lines[-LOG_FILE_LENGTH:])
             )
                                                                # execute command
-        os.system(full_action + ' >> ' + log_file_spec)
+        time_stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(time_stamp)
+        print(type(time_stamp))
+        log_file = open(log_file_spec, 'a')
+        log_file.write(SEPARATOR2)
+        log_file.write("\n%s\n" % time_stamp)
+        log_file.write("%s\n" % full_action)
+        log_file.close()
+        os.system("%s >> %s &" % (full_action, log_file_spec))
 
 # ------------------------------------------------------------------------------
 # catch ctrl-C interrupt

@@ -13,6 +13,7 @@ $device_id = 'actions';         # max 8 chars
 $class_id = 'actions';          # max 8 chars
 
 $separator = '-' x 80;
+$separator2 = '=' x 80;
 $indent = ' ' x 2;
 
 #-------------------------------------------------------------------------------
