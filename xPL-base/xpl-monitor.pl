@@ -93,7 +93,7 @@ while ( (defined($xpl_socket)) && ($end == 0) ) {
     $heartbeat_interval, $last_heartbeat_time
   );
                                               # get xpl-UDP message with timeout
-  my ($xpl_message) = xpl_get_message($xpl_socket, $timeout);
+  my ($xpl_message, $source_address) = xpl_get_message($xpl_socket, $timeout);
                                                       # filter XPL hbeat message
   if ($filter_heartbeats != 0) {
     if ($xpl_message =~ m/\}\nhbeat.app\n\{/) {

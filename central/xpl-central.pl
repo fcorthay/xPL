@@ -22,7 +22,7 @@ $indent = ' ' x 2;
 # global variables
 #
 my %configuration;
-$configuration{'actionsFileSpec'} = '/home/control/Controls/xPL/central/centralActions.xml';
+$configuration{'actionsFileSpec'} = '/home/admin/Controls/xPL/central/centralActions.xml';
 $configuration{'reloadFile'} = 0;
 $configuration{'logFile'} = '/tmp/xpl.log';
 $configuration{'logFileLength'} = 1000;

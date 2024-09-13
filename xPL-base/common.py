@@ -84,13 +84,13 @@ def xpl_open_socket(xpl_port, client_base_port) :
     return(client_port, xpl_socket);
 
 #-------------------------------------------------------------------------------
-# Send UDP message to broadcast address
+# Send UDP message to xPL broadcast port
 #
 def xpl_send_broadcast (xpl_socket, xpl_port, message) :
                                                       # enable broadcasting mode
     xpl_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                                                         # send broadcast message
-    xpl_socket.sendto(message.encode(), ('<broadcast>', xpl_port))
+    xpl_socket.sendto(message.encode(), ('localhost', xpl_port))
 
 #-------------------------------------------------------------------------------
 # Send xPL message to broadcast address

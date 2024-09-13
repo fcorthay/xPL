@@ -6,6 +6,7 @@ use FindBin;                    # find the script's directory
 use lib $FindBin::Bin;          # add that directory to the library path
 use common;
 
+my $MAX_MESSAGE_LENGTH = 1024;
 
 my $separator = '-' x 80;
 my $indent = ' ' x 2;
@@ -37,6 +38,7 @@ my $timeout = $opts{'t'} || 1;
 my $startup_sleep_time = $opts{'w'} || 0;
 my $log_file = $opts{'l'} || '/dev/null';
 
+my $debug = 1;
 
 ################################################################################
 # Local functions
@@ -76,22 +78,22 @@ sub message_is_local {
 # Broadcast an xPL message to a local client on the port he is listening to
 #
 sub broadcast_message {
-	my ($port, $message) = @_;
+	my ($xpl_socket, $port, $message) = @_;
                                                                    # open socket
+  # $UDP_socket = IO::Socket::INET->new(
+  #   PeerAddr  => 'localhost',
+  #   PeerPort  => $port,
+  #   Proto     => 'udp'
+  # );
+  # if (!defined($UDP_socket)) {
+  #   print "Error sending xPL message to port $port.\n";
+  #   return;
+  # }  
+                                                                  # send message
+#  $UDP_socket->autoflush(1);
   my $ipaddr   = inet_aton('127.0.0.1');
   my $portaddr = sockaddr_in($port, $ipaddr);
-  my $sockUDP = IO::Socket::INET->new(
-    PeerPort => $port,
-    Proto    => 'udp'
-  );
-  if (!defined($sockUDP)) {
-    print "Error sending xPL message to port $port.\n";
-    return;
-  }  
-                                                                  # send message
-  $sockUDP->autoflush(1);
-  $sockUDP->sockopt(SO_BROADCAST, 1);
-  $sockUDP->send($message, 0, $portaddr);  
+  $xpl_socket->send($message, 0, $portaddr);  
 #print "$message\n";
                                                                   # close socket
   close $sockUDP;
@@ -106,6 +108,7 @@ sub log_client_list {
   open(LOG_FILE, "> $log_file_spec");
   print(LOG_FILE "Ports and associated xPL clients:\n");
   foreach my $client (sort keys %clients) {
+print("logging $client: $clients{$client}\n");
     print(LOG_FILE "${indent}$client: $clients{$client}\n");
   }
   close(LOG_FILE);
@@ -130,11 +133,14 @@ my $xpl_socket = IO::Socket::INET->new(
   LocalPort => $xpl_port,
 );	
 die(
-  "The hub could not bind to port 3865." &
+  "The hub could not bind to port $xpl_port." &
   "Make sure you are not already running an xPL hub.\n"
 ) unless $xpl_socket;
                                                     # Get all local IP addresses
 my @local_addresses = get_local_IPs;
+if ($verbose > 0) {
+  print("@local_addresses\n");
+}
 
 #===============================================================================
 # Main loop
@@ -147,14 +153,29 @@ while (defined($xpl_socket)) {
   my ($xPL_message, $source_address) = xpl_get_message($xpl_socket, $timeout);
   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
   my $time_string = sprintf('%02d:%02d:%02d', $hour, $min, $sec);
+#  if ($debug > 0) {
+#    print("$time_string\n");
+#  }
   if ($xPL_message) {
-#print "$source_address : $xPL_message\n";
+    if ($debug > 0) {
+      print("Received from $source_address\n");
+#      print("$xPL_message\n");
+    }
                                              # check for local heartbeat message
     if (message_is_local($source_address, @local_addresses)) {
-#print "$xPL_message\n";
+      if ($debug > 0) {
+        print("Received from $source_address\n");
+        print("$xPL_message\n");
+      }
       my ($type, $source, $target, $schema, %body) = xpl_get_message_elements(
         $xPL_message
       );
+      if ($debug > 0) {
+        print("type   : $type\n");
+        print("source : $source\n");
+        print("target : $target\n");
+        print("schema : $schema\n");
+      }
       my $port = $body{port};
                                                     # process heartbeat messages
       if ( ($type eq 'xpl-stat') and ($schema =~ m/\Ahbeat.app/) ) {
@@ -196,15 +217,23 @@ while (defined($xpl_socket)) {
       }
     }
                                          # broadcast xPL messages to client list
+    if ($debug > 0) {
+      print "-> Sending message to clients\n";
+    }
     foreach my $client (keys %clients) {
-#print "$xPL_message\n";
-      broadcast_message($client, $xPL_message);
+      if ($debug > 0) {
+        print "--> Sending message to $client\n";
+      }
+      broadcast_message($xpl_socket, $client, $xPL_message);
     }
   }
                                                               # decrement timers
   else {
 #print "$time_string -> $timeouts{50001}\n";
     foreach my $client (keys %clients) {
+      if ($debug > 0) {
+        print("$client : $timeouts{$client}\n");
+      }
       $timeouts{$client} = $timeouts{$client} - 1;
                                                       # remove client on timeout
       if ($timeouts{$client} <= 0) {
@@ -218,7 +247,6 @@ while (defined($xpl_socket)) {
         delete $timeouts{$client};                
         log_client_list($log_file, %clients);
       }
-#print $indent . "$client: $timeouts{$client}\n";
     }
   }
 }

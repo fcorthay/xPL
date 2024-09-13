@@ -46,7 +46,7 @@ Ethernet_timeout = int(parser_arguments.timeout)/1000
 startup_delay = int(parser_arguments.wait)
 log_file_spec = parser_arguments.log
 
-debug = False
+debug = True
 
 # ==============================================================================
 # functions

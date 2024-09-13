@@ -9,6 +9,8 @@ use strict;
 use Exporter;
 use vars qw($VERSION @ISA @EXPORT);
 
+my $MAX_MESSAGE_LENGTH = 1024;
+
 $VERSION = 1.00;
 @ISA     = qw(Exporter);
 #@ISA     = ("Exporter");
@@ -104,7 +106,8 @@ sub xpl_open_socket {
   while (!$xpl_socket && $client_port < $client_base_port+1000) {
     $xpl_socket = IO::Socket::INET->new(
       Broadcast => 1,
-      PeerPort => $xpl_port,
+      PeerAddr  => 'localhost',
+      PeerPort  => $xpl_port,
       LocalPort => $client_port,
       Proto     => 'udp'
     );
@@ -120,26 +123,20 @@ sub xpl_open_socket {
 }
 
 #-------------------------------------------------------------------------------
-# Send UDP message to broadcast address
+# Send UDP message to xPL broadcast port
 #
 sub xpl_send_broadcast {
-	my ($xpl_socket, $xpl_port, $message) = @_;
+  my ($xpl_socket, $message) = @_;
                                                         # send broadcast message
-  my $ipaddr   = INADDR_BROADCAST;
-  my $portaddr = sockaddr_in($xpl_port, $ipaddr);
   $xpl_socket->autoflush(1);
-  $xpl_socket->send($message, 0, $portaddr);
+  $xpl_socket->send($message);
 }
 
 #-------------------------------------------------------------------------------
 # Send xPL message to broadcast address
 #
 sub xpl_send_message {
-	my (
-	  $xpl_socket, $xpl_port,
-	  $type, $source, $target, $class,
-	  %body
-  ) = @_;
+	my ($xpl_socket, $type, $source, $target, $class, %body) = @_;
                                                              # build xPL message
   my $message = "$type\n";
   $message .= "{\n";
@@ -155,7 +152,7 @@ sub xpl_send_message {
   $message .= "}\n";
 #print "$message\n";
                                                               # send xPL message
-  xpl_send_broadcast($xpl_socket, $xpl_port, $message);
+  xpl_send_broadcast($xpl_socket, $message);
 }
 
 #-------------------------------------------------------------------------------
@@ -231,12 +228,11 @@ sub xpl_get_message {
   eval {
     local $SIG{ALRM} = sub { die "starting alarm time out" };
     alarm $timeout;
-    $source_address = recv($xpl_socket, $message, 1500, 0);
-    (my $port, $source_address) = sockaddr_in($source_address);
+    $xpl_socket->recv($message, $MAX_MESSAGE_LENGTH);
+    $source_address = $xpl_socket->peerhost();
     chomp($message);
-    $source_address = inet_ntoa($source_address);
     alarm 0;
-    1;  # return value from eval on normalcy
+    1;
   } or  $message = '';
                                                                 # return message
   return ($message, $source_address);
@@ -254,7 +250,7 @@ sub xpl_send_heartbeat {
   if ($elapsed_time >= $heartbeat_interval) {
 #print "Sending heartbeat\n";
     xpl_send_message(
-      $xpl_socket, $xpl_port,
+      $xpl_socket,
       'xpl-stat', $xpl_id, '*', 'hbeat.app',
       (
         'interval'  => $heartbeat_interval,
@@ -275,7 +271,7 @@ sub xpl_disconnect {
 	my ($xpl_socket, $xpl_id, $xpl_ip, $client_port) = @_;
                                              # send disconnext heartbeat message
   xpl_send_message(
-    $xpl_socket, $xpl_port,
+    $xpl_socket,
     'xpl-stat', $xpl_id, '*', 'hbeat.end',
     (
       'port'      => $client_port,
