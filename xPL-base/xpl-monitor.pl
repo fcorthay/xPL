@@ -78,7 +78,6 @@ if ($verbose > 0) {
   print "${indent}Started UDP socket on port $client_port\n";
 }
 
-
 #===============================================================================
 # Main loop
 #

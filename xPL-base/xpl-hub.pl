@@ -96,7 +96,7 @@ sub broadcast_message {
   $xpl_socket->send($message, 0, $portaddr);  
 #print "$message\n";
                                                                   # close socket
-  close $sockUDP;
+#  close $UDP_socket;
 }
 
 #-------------------------------------------------------------------------------
@@ -119,28 +119,26 @@ print("logging $client: $clients{$client}\n");
 # Main script
 #
 sleep($startup_sleep_time);
+                                                    # Get all local IP addresses
+my @local_addresses = get_local_IPs;
                                                                # welcome message
 if ($verbose > 0) {
   system("clear");
   print("$separator\n");
   print("Starting xPL hub\n");
   print("${indent}log file: $log_file\n");
+  print("${indent}local addresses : @local_addresses\n");
   print("\n");
 }
                                                  # start xPL UDP listener socket
 my $xpl_socket = IO::Socket::INET->new(
   Proto     => 'udp',
-  LocalPort => $xpl_port,
+  LocalPort => $xpl_port
 );	
 die(
   "The hub could not bind to port $xpl_port." &
   "Make sure you are not already running an xPL hub.\n"
 ) unless $xpl_socket;
-                                                    # Get all local IP addresses
-my @local_addresses = get_local_IPs;
-if ($verbose > 0) {
-  print("@local_addresses\n");
-}
 
 #===============================================================================
 # Main loop
@@ -158,6 +156,7 @@ while (defined($xpl_socket)) {
 #  }
   if ($xPL_message) {
     if ($debug > 0) {
+      print("$separator\n");
       print("Received from $source_address\n");
 #      print("$xPL_message\n");
     }
@@ -231,9 +230,9 @@ while (defined($xpl_socket)) {
   else {
 #print "$time_string -> $timeouts{50001}\n";
     foreach my $client (keys %clients) {
-      if ($debug > 0) {
-        print("$client : $timeouts{$client}\n");
-      }
+      # if ($debug > 0) {
+      #   print("$client : $timeouts{$client}\n");
+      # }
       $timeouts{$client} = $timeouts{$client} - 1;
                                                       # remove client on timeout
       if ($timeouts{$client} <= 0) {

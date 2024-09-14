@@ -1,7 +1,8 @@
 package common;
 
+use IO::Interface::Simple;
 use IO::Socket;
-use IO::Select;
+#use IO::Select;
 use Sys::Hostname;
 #use Time::HiRes qw/ualarm/;
 
@@ -95,10 +96,23 @@ sub xpl_build_id {
 }
 
 #-------------------------------------------------------------------------------
-# Open a broadcast UDP socket to the xPL hub
+# Open a broadcast UDP socket to the xPL port
 #
 sub xpl_open_socket {
   my ($xpl_port, $client_base_port) = @_;
+                                                            # find local address
+  my $local_address = 'localhost';
+  my @network_interfaces = IO::Interface::Simple->interfaces;
+  my $found_interface = 0;
+  for my $network_interface (@network_interfaces) {
+    if (! $network_interface->is_loopback && ! $found_interface) {
+      if ($network_interface->is_running) {
+        $local_address = '';
+      }
+      $found_interface = 1;
+    }
+  }
+print "Local address is $local_address\n";
                                                        # start on base port port
   my $client_port = $client_base_port;
   my $xpl_socket;
@@ -106,9 +120,18 @@ sub xpl_open_socket {
   while (!$xpl_socket && $client_port < $client_base_port+1000) {
     $xpl_socket = IO::Socket::INET->new(
       Broadcast => 1,
-      PeerAddr  => 'localhost',
-      PeerPort  => $xpl_port,
+#      LocalAddr => '192.168.1.147',
+#      LocalAddr => '192.168.2.1',
+#      LocalAddr => 'localhost',
+      LocalAddr => $local_address,
       LocalPort => $client_port,
+#      PeerAddr  => '192.168.1.255',
+#      PeerAddr  => '192.168.2.255',
+#      PeerAddr  => '0.0.0.0',
+#      PeerAddr  => inet_ntoa(INADDR_ANY),
+#      PeerAddr  => '255.255.255.255',
+#      PeerAddr  => inet_ntoa(INADDR_BROADCAST),
+      PeerPort  => $xpl_port,
       Proto     => 'udp'
     );
 
@@ -126,17 +149,20 @@ sub xpl_open_socket {
 # Send UDP message to xPL broadcast port
 #
 sub xpl_send_broadcast {
-  my ($xpl_socket, $message) = @_;
+  my ($xpl_socket, $xpl_port, $message) = @_;
                                                         # send broadcast message
+  my $ipaddr   = INADDR_BROADCAST;
+#  my $ipaddr   = inet_aton('192.168.2.255');
+  my $portaddr = sockaddr_in($xpl_port, $ipaddr);
   $xpl_socket->autoflush(1);
-  $xpl_socket->send($message);
+  $xpl_socket->send($message, 0, $portaddr);
 }
 
 #-------------------------------------------------------------------------------
 # Send xPL message to broadcast address
 #
 sub xpl_send_message {
-	my ($xpl_socket, $type, $source, $target, $class, %body) = @_;
+	my ($xpl_socket, $xpl_port, $type, $source, $target, $class, %body) = @_;
                                                              # build xPL message
   my $message = "$type\n";
   $message .= "{\n";
@@ -152,7 +178,7 @@ sub xpl_send_message {
   $message .= "}\n";
 #print "$message\n";
                                                               # send xPL message
-  xpl_send_broadcast($xpl_socket, $message);
+  xpl_send_broadcast($xpl_socket, $xpl_port, $message);
 }
 
 #-------------------------------------------------------------------------------
@@ -250,7 +276,7 @@ sub xpl_send_heartbeat {
   if ($elapsed_time >= $heartbeat_interval) {
 #print "Sending heartbeat\n";
     xpl_send_message(
-      $xpl_socket,
+      $xpl_socket, $xpl_port,
       'xpl-stat', $xpl_id, '*', 'hbeat.app',
       (
         'interval'  => $heartbeat_interval,
