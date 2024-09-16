@@ -112,7 +112,7 @@ sub xpl_open_socket {
       $found_interface = 1;
     }
   }
-print "Local address is $local_address\n";
+#print "Local address is $local_address\n";
                                                        # start on base port port
   my $client_port = $client_base_port;
   my $xpl_socket;

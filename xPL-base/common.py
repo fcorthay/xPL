@@ -71,7 +71,7 @@ def xpl_open_socket(xpl_port, client_base_port) :
     while (not found) and (client_port < client_base_port+1000) :
         try :
             xpl_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            xpl_socket.bind(('<broadcast>', client_port))
+            xpl_socket.bind(('', client_port))
             xpl_socket.setblocking(0)
             found = True
         except :
@@ -90,7 +90,7 @@ def xpl_send_broadcast (xpl_socket, xpl_port, message) :
                                                       # enable broadcasting mode
     xpl_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                                                         # send broadcast message
-    xpl_socket.sendto(message.encode(), ('localhost', xpl_port))
+    xpl_socket.sendto(message.encode(), ('<broadcast>', xpl_port))
 
 #-------------------------------------------------------------------------------
 # Send xPL message to broadcast address

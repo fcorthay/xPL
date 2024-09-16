@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+use File::Basename;
 use FindBin;                            # find the script's directory
 use lib "$FindBin::Bin/../xPL-base";    # add path for common lib
 use common;
@@ -54,8 +55,7 @@ my $instance_id = $opts{'n'} || xpl_build_automatic_instance_id;
 my $heartbeat_interval = $opts{'t'} || 5;
 my $startup_sleep_time = $opts{'w'} || 0;
 
-$configuration{'soundDirectory'} = $opts{'d'} ||
-  '/home/control/Controls/xPL/utilities/sounds';
+$configuration{'soundDirectory'} = $opts{'d'} || dirname($0) . '/sounds';
 $configuration{'soundFile'}      = $opts{'s'} || 'doorBell.wav';
 $configuration{'playCommand'}    = $opts{'c'} || '/usr/bin/aplay';
 

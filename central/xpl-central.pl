@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+use File::Basename;
 use Data::Dumper;
 use XML::Simple;
 use Time::HiRes qw(usleep);
@@ -22,7 +23,7 @@ $indent = ' ' x 2;
 # global variables
 #
 my %configuration;
-$configuration{'actionsFileSpec'} = '/home/admin/Controls/xPL/central/centralActions.xml';
+$configuration{'actionsFileSpec'} = dirname($0) . '/centralActions.xml';
 $configuration{'reloadFile'} = 0;
 $configuration{'logFile'} = '/tmp/xpl.log';
 $configuration{'logFileLength'} = 1000;

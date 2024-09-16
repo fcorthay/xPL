@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+use File::Basename;
 use FindBin;                            # find the script's directory
 use lib "$FindBin::Bin/../xPL-base";    # add path for common lib
 use common;
@@ -20,7 +21,7 @@ $indent = ' ' x 2;
 # global variables
 #
 my %configuration;
-$configuration{'baseDirectory'} = '/home/control/Documents/Controls/Actions';
+$configuration{'baseDirectory'} = dirname($0) . '/actions';
 
 
 ################################################################################
