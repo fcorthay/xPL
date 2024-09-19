@@ -103,7 +103,8 @@ if verbose :
     os.system('clear||cls')
     print(SEPARATOR)
     print("Getting Snapcat client list from %s:%s" %
-        (snap_server_name, snap_server_port))
+        (snap_server_name, snap_server_port)
+    )
 service_url = "http://%s:%d/jsonrpc" % (snap_server_name, snap_server_port)
 request_id = 0
 request = {
