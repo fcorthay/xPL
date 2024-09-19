@@ -1,5 +1,8 @@
 #!/usr/bin/python3
+import os
 import argparse
+import logging
+from logging.handlers import RotatingFileHandler
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import sys
@@ -52,6 +55,11 @@ parser.add_argument(
     '-c', '--m_class', default=CLASS_ID+'.basic',
     help = 'xPL message class (class_id.type_id)'
 )
+                                                                      # log file
+parser.add_argument(
+    '-l', '--logFile', default='/tmp/xpl-rest.log',
+    help = 'log file'
+)
                                                                      # verbosity
 parser.add_argument(
     '-v', '--verbose', action='store_true', dest='verbose',
@@ -65,6 +73,7 @@ message_type = parser_arguments.type
 message_source = parser_arguments.source
 message_target = parser_arguments.destination
 message_class = parser_arguments.m_class
+log_file_spec = parser_arguments.logFile
 verbose = parser_arguments.verbose
 
 # ==============================================================================
@@ -72,19 +81,30 @@ verbose = parser_arguments.verbose
 #
 
 # ------------------------------------------------------------------------------
+# check if button request
+#
+def is_button_request(path) :
+    is_button = False
+    path_elements = path.split('/')
+    if len(path_elements) == 5 :
+        if path_elements[2] == 'button' :
+            is_button = True
+
+    return(is_button)
+
+# ------------------------------------------------------------------------------
 # get button action
 #
 def get_button_action(path) :
+    button_brand = ''
     button_id = ''
     button_action = ''
     path_elements = path.split('/')
-    if len(path_elements) == 5 :
-        if path_elements[1] == 'myStrom' :
-            if path_elements[2] == 'button' :
-                button_id = path_elements[3]
-                button_action = path_elements[4]
+    button_brand = path_elements[1]
+    button_id = path_elements[3]
+    button_action = path_elements[4]
 
-    return(button_id, button_action)
+    return(button_brand, button_id, button_action)
 
 # ------------------------------------------------------------------------------
 # build HTML reply
@@ -110,9 +130,9 @@ def build_HTML_reply(path, info) :
 # ------------------------------------------------------------------------------
 # send xPl message
 #
-def send_xPl_message(button_id, button_action) :
+def send_xPl_message(button_brand, button_id, button_action) :
     message_body = {}
-    message_body['hardware'] = 'myStrom'
+    message_body['hardware'] = button_brand
     message_body['id'] = button_id.replace(':', '').upper()
     message_body['action'] = button_action
 
@@ -126,6 +146,62 @@ def send_xPl_message(button_id, button_action) :
 # HTTP methods
 #
 class http_server(BaseHTTPRequestHandler):
+                                                                           # GET
+    def do_GET(self):
+        client = self.client_address[0]
+        path = self.path
+        logging.info(client + ' GET ' + path)
+        if is_button_request(path) :
+            (button_brand, button_id, button_action) = get_button_action(path)
+            info = "On <code>%s</code> " % button_brand
+            info += "button <code>%s</code>, " % button_id
+            info += "action was <code>%s</code>" % button_action
+            self.send_reply(info=info, code=HTTPStatus.OK)
+            send_xPl_message(button_brand, button_id, button_action)
+        else :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
+                                                                          # POST
+    def do_POST(self):
+        client = self.client_address[0]
+        path = self.path
+        logging.info(client + ' POST ' + path)
+        if is_button_request(path) :
+            (button_brand, button_id, button_action) = get_button_action(path)
+            if button_id :
+                self.send_reply(code=HTTPStatus.OK)
+                send_xPl_message(button_brand, button_id, button_action)
+            else :
+                self.send_reply(code=HTTPStatus.BAD_REQUEST)
+        else :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
+                                                                           # PUT
+    def do_PUT(self):
+        client = self.client_address[0]
+        path = self.path
+        logging.info(client + ' PUT ' + path)
+        if is_button_request(path) :
+            (button_brand, button_id, button_action) = get_button_action(path)
+            if button_id :
+                self.send_reply(code=HTTPStatus.OK)
+                send_xPl_message(button_brand, button_id, button_action)
+            else :
+                self.send_reply(code=HTTPStatus.BAD_REQUEST)
+        else :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
+                                                                         # PATCH
+    def do_PATCH(self):
+        client = self.client_address[0]
+        path = self.path
+        logging.info(client + ' PATCH ' + path)
+        print('patch:/' + path)
+        self.send_reply()
+                                                                        # DELETE
+    def do_DELETE(self):
+        client = self.client_address[0]
+        path = self.path
+        logging.info(client + ' DELETE ' + path)
+        print('delete:/' + path)
+        self.send_reply()
                                                                  # HTML response
     def send_reply(self, info='', code=HTTPStatus.OK):
         path = self.path
@@ -136,46 +212,34 @@ class http_server(BaseHTTPRequestHandler):
             self.wfile.write(build_HTML_reply(path, info).encode("ascii"))
         else :
             self.send_error(code, explain="Path was \"%s\"" % path)
-                                                                           # GET
-    def do_GET(self):
-        (button_id, button_action) = get_button_action(self.path)
-        if button_id :
-            info = "On button <code>%s</code>, action was <code>%s</code>" \
-                % (button_id, button_action)
-            self.send_reply(info=info, code=HTTPStatus.OK)
-            send_xPl_message(button_id, button_action)
-        else :
-            self.send_reply(code=HTTPStatus.BAD_REQUEST)
-                                                                          # POST
-    def do_POST(self):
-        (button_id, button_action) = get_button_action(self.path)
-        if button_id :
-            self.send_reply(code=HTTPStatus.OK)
-            send_xPl_message(button_id, button_action)
-        else :
-            self.send_reply(code=HTTPStatus.BAD_REQUEST)
-                                                                           # PUT
-    def do_PUT(self):
-        print('put:/' + self.path)
-        self.send_reply()
-                                                                         # PATCH
-    def do_PATCH(self):
-        print('patch:/' + self.path)
-        self.send_reply()
-                                                                        # DELETE
-    def do_DELETE(self):
-        print('delete:/' + self.path)
-        self.send_reply()
 
 # ==============================================================================
 # main script
 #
+                                                                 # setup logging
+try:
+    os.remove(log_file_spec)
+except OSError:
+    pass
+logging.basicConfig(
+    handlers = [
+        RotatingFileHandler(
+            log_file_spec,
+            maxBytes = 100*80,
+            backupCount = 1
+        )
+    ],
+    level = logging.INFO,
+    format = '%(asctime)s %(levelname)s %(message)s',
+    datefmt = '%Y-%m-%d %H:%M:%S'
+)
                                                              # create xPL socket
 (client_port, xpl_socket) = common.xpl_open_socket(
     common.XPL_PORT, xPL_base_port
 )
                                                              # start HTML server
 server = HTTPServer(('', http_server_port), http_server)
+logging.info('Starting xPL REST server')
 try:
     server.serve_forever()
 except KeyboardInterrupt:
