@@ -184,7 +184,11 @@ while not end :
                                 'muted' : False, 'percent' : level
                             }
                             send_request = True
-                        if command == 'mute' :
+                        if command == 'on' :
+                            request['method'] = 'Client.SetVolume'
+                            request['params']['volume'] = {'muted' : False}
+                            send_request = True
+                        if (command == 'mute') or (command == 'off') :
                             request['method'] = 'Client.SetVolume'
                             request['params']['volume'] = {'muted' : True}
                             send_request = True
