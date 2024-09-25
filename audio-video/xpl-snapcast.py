@@ -75,6 +75,32 @@ debug = False
 #
 
 # ------------------------------------------------------------------------------
+# get client list
+#
+def get_client_list(request, service_url):
+    response = requests.post(service_url, data=json.dumps(request)).json()
+    client_ids = {}
+    display_length = 0
+    groups_info = response['result']['server']['groups']
+    for group_info in groups_info :
+        for client_info in group_info['clients'] :
+            client_name = client_info['host']['name']
+            client_id = client_info['id']
+            client_ids[client_name] = client_id
+            name_length = len(client_name)
+            if name_length > display_length:
+                display_length = name_length
+    if verbose :
+        print("\nClient list:")
+        client_ids = dict(sorted(client_ids.items()))
+        column_format = "%%-%ds : %%s" % display_length
+        for client_name in client_ids :
+            print(
+                INDENT + column_format % (client_name, client_ids[client_name])
+            )
+    return(client_ids)
+
+# ------------------------------------------------------------------------------
 # catch ctrl-C interrupt
 #
 end = False
@@ -98,48 +124,23 @@ xpl_ip = common.xpl_find_ip()
 (client_port, xpl_socket) = common.xpl_open_socket(
     common.XPL_PORT, Ethernet_base_port
 )
-                                                              # get clients list
+                                                    # display working parameters
 if verbose :
     os.system('clear||cls')
     print(SEPARATOR)
-    print("Getting Snapcat client list from %s:%s" %
-        (snap_server_name, snap_server_port)
-    )
-service_url = "http://%s:%d/jsonrpc" % (snap_server_name, snap_server_port)
-request_id = 0
-request = {
-    'jsonrpc': '2.0',
-    'id' : "%d" % request_id,
-    'method' : 'Server.GetStatus'
-}
-response = requests.post(service_url, data=json.dumps(request)).json()
-request_id = request_id + 1
-client_ids = {}
-display_length = 0
-groups_info = response['result']['server']['groups']
-for group_info in groups_info :
-    for client_info in group_info['clients'] :
-        client_name = client_info['host']['name']
-        client_id = client_info['id']
-        client_ids[client_name] = client_id
-        name_length = len(client_name)
-        if name_length > display_length:
-            display_length = name_length
-if verbose :
-    client_ids = dict(sorted(client_ids.items()))
-    column_format = "%%-%ds : %%s" % display_length
-    print(column_format)
-    for client_name in client_ids :
-        print(INDENT + column_format % (client_name, client_ids[client_name]))
-                                                    # display working parameters
 if verbose :
     print("Ready to control Snapcat audio")
-    print(INDENT + "class id    : %s" % CLASS_ID)
-    print(INDENT + "instance id : %s" % instance_id)
+    print(INDENT + "class id         : %s" % CLASS_ID)
+    print(INDENT + "instance id      : %s" % instance_id)
+    print(INDENT + "sanp server name : %s" % snap_server_name)
+    print(INDENT + "sanp server port : %s" % snap_server_port)
     print()
 
 # ..............................................................................
                                                                   # main loop
+request_id = 0
+service_url = "http://%s:%d/jsonrpc" % (snap_server_name, snap_server_port)
+
 timeout = 1;
 last_heartbeat_time = 0;
 last_message_time = 0;
@@ -159,6 +160,13 @@ while not end :
         if schema == CLASS_ID + '.basic' :
             if xpl_type == 'xpl-cmnd' :
                 if common.xpl_is_for_me(xpl_id, target) :
+                    request = {
+                        'jsonrpc': '2.0',
+                        'id' : "%d" % request_id,
+                        'method' : 'Server.GetStatus'
+                    }
+                    client_ids = get_client_list(request, service_url)
+                    request_id = request_id + 1
                     client_name = body['client'];
                     if verbose :
                         print("Received command from %s for %s" %
