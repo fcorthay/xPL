@@ -12,8 +12,8 @@ import requests
 # constants
 #
 VENDOR_ID = 'dspc';             # from xplproject.org
-DEVICE_ID = 'notify';           # max 8 chars
-CLASS_ID = 'notify';            # max 8 chars
+DEVICE_ID = 'request';          # max 8 chars
+CLASS_ID = 'request';           # max 8 chars
 
 INDENT = '  '
 SEPARATOR = 80 * '-'
@@ -107,9 +107,7 @@ xpl_ip = common.xpl_find_ip()
 if verbose :
     os.system('clear||cls')
     print(SEPARATOR)
-    print("Ready to send notification to %s:%s/%s" %
-        (notify_server_name, notify_server_port, notify_topic)
-    )
+    print("Ready to send HTTP requests on demand")
     print(INDENT + "class id    : %s" % CLASS_ID)
     print(INDENT + "instance id : %s" % instance_id)
     print()
@@ -135,16 +133,53 @@ while not end :
         if schema == CLASS_ID + '.basic' :
             if xpl_type == 'xpl-cmnd' :
                 if common.xpl_is_for_me(xpl_id, target) :
-                    if 'message' in body.keys() :
-                        message = body['message']
-                        if verbose :
-                            print("Sending \"%s\"" % message)
-                        request = requests.post(
-                            "http://%s/%s" % (
-                                notify_server_name, notify_topic
-                            ),
-                            data = message
-                        )
+                                                                        # method
+                    method = 'GET'
+                    if 'method' in body.keys() :
+                        method = body['method'].upper()
+                        body.pop('method')
+                                                                      # protocol
+                    request_URL = 'http'
+                    if 'protocol' in body.keys() :
+                        request_URL = body['protocol']
+                        body.pop('protocol')
+                    request_URL = request_URL + '://'
+                                                                        # server
+                    server = 'localhost'
+                    if 'server' in body.keys() :
+                        server = body['server']
+                        body.pop('server')
+                    request_URL = request_URL + server
+                                                                          # port
+                    port = ''
+                    if 'port' in body.keys() :
+                        port = ':' + body['port']
+                        body.pop('port')
+                    request_URL = request_URL + port + '/'
+                                                                          # path
+                    path = ''
+                    if 'path' in body.keys() :
+                        path = body['path']
+                        body.pop('path')
+                    request_URL = request_URL + path
+                                                                    # parameters
+                    parameters = ''
+                    if body :
+                        for parameter, value in body.items():
+                            parameters = parameters + "&%s=%s" \
+                                % (parameter, value)
+                        parameters = parameters.replace('&', '?', 1)
+                    request_URL = request_URL + parameters
+                    if verbose :
+                        print("request \"%s %s\"" % (method, request_URL))
+                    if method == 'GET' :
+                        request = requests.get(request_URL)
+                    if method == 'POST' :
+#                        request = requests.post(request_URL, data='')
+                        request = requests.post(request_URL)
+                    if method == 'PUT' :
+                        request = requests.put(request_URL)
+                    if verbose :
                         print(INDENT + request.reason)
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)
