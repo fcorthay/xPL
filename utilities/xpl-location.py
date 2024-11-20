@@ -113,6 +113,44 @@ def is_sensor_logger_info(path) :
     return(is_sensor_logger)
 
 # ------------------------------------------------------------------------------
+# check if request is from GPSLogger
+#
+def is_gps_logger_info(path) :
+    is_gps_logger = False
+    path_elements = path.split('/')
+    if path_elements[-1] == 'gpsLogger' :
+        is_gps_logger = True
+
+    return(is_gps_logger)
+
+# ------------------------------------------------------------------------------
+# get GPSLogger coordinates
+#
+def GPS_logger_info(parameters) :
+    time      = 0
+    latitude  = 0
+    longitude = 0
+    altitude  = 0
+    speed     = 0
+                                                               # get coordinates
+    parameter_list = parameters.split('&')
+    for parameter_data in parameter_list :
+        (parameter, value) = parameter_data.split('=')
+        if parameter == 'time' :
+            (date, time) = value.split('T')
+            time = date + ' ' + time[:8]
+        if parameter == 'latitude' :
+            latitude = float(value)
+        if parameter == 'longitude' :
+            longitude = float(value)
+        if parameter == 'altitude' :
+            altitude = float(value)
+        if parameter == 'speed' :
+            speed = float(value)
+
+    return(time, latitude, longitude, altitude, speed)
+
+# ------------------------------------------------------------------------------
 # get Sensor Logger coordinates
 #
 def sensor_logger_info(data_dictionary) :
@@ -128,7 +166,6 @@ def sensor_logger_info(data_dictionary) :
                 timestamp  = sensor_data['time']
                 time_dt = datetime.datetime.fromtimestamp(timestamp // 1E9)
                 time = time_dt.strftime('%Y-%m-%d %H:%M:%S')
-                print(time)
                 latitude  = sensor_data['values']['latitude']
                 longitude = sensor_data['values']['longitude']
                 altitude  = sensor_data['values']['altitude']
@@ -208,7 +245,10 @@ class http_server(BaseHTTPRequestHandler):
     def do_POST(self):
         client = self.client_address[0]
         path = self.path
-        print(client + ' : POST ' + path)
+        parameters = ''
+        if '?' in path :
+            (path, parameters) = path.split('?')
+        print(client + ' : POST ' + path + ' ' + parameters)
         if is_sensor_logger_info(path) :
             name = device_name(path)
             data = self.rfile.read(int(self.headers['Content-Length']))
@@ -230,6 +270,27 @@ class http_server(BaseHTTPRequestHandler):
                 "altitude : %g," % altitude,
                 "speed : %g" % speed
             ])
+            self.send_reply(code=HTTPStatus.OK)
+        elif is_gps_logger_info(path) :
+            name = device_name(path)
+            (time, latitude, longitude, altitude, speed) = GPS_logger_info(
+                parameters
+            )
+            if verbose :
+                print("received coordinate from GPSLogger for %s" %name)
+                print(INDENT + "time     : %s" % time)
+                print(INDENT + "latitude : %g" % latitude)
+                print(INDENT + "longitude: %g" % longitude)
+                print(INDENT + "altitude : %g" % altitude)
+                print(INDENT + "speed    : %g" % speed)
+            log_GPS_info(name, [
+                "time : %s," % time,
+                "latitude : %g," % latitude,
+                "longitude : %g," % longitude,
+                "altitude : %g," % altitude,
+                "speed : %g" % speed
+            ])
+            self.send_reply(code=HTTPStatus.OK)
         else :
             self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                            # PUT
@@ -259,7 +320,7 @@ class http_server(BaseHTTPRequestHandler):
             self.send_response(code)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
- #           self.wfile.write(build_HTML_reply(path, info).encode("ascii"))
+#            self.wfile.write(build_HTML_reply(path, info).encode("ascii"))
         else :
             self.send_error(code, explain="Path was \"%s\"" % path)
 
