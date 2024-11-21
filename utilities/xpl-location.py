@@ -34,7 +34,10 @@ parser.add_argument(
 )
                                                                  # log directory
 parser.add_argument(
-    '-l', '--logDir', default=os.path.dirname(os.path.realpath(__file__)),
+    '-l', '--logDir',
+    default=os.sep.join([
+        os.path.dirname(os.path.realpath(__file__)), 'locations'
+    ]),
     help = 'the directory logs'
 )
                                                                  # xPL base port
@@ -331,9 +334,8 @@ class http_server(BaseHTTPRequestHandler):
 if verbose :
     os.system('clear||cls')
     print(SEPARATOR)
-    print(
-        INDENT + "Started listening for GPS data on port %s" % http_server_port
-    )
+    print("Started listening for GPS data on port %s" % http_server_port)
+    print(INDENT + "Logging to %s" % log_directory)
                                                                     # run server
 server = HTTPServer(('', http_server_port), http_server)
 try:
