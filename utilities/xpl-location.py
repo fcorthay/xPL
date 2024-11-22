@@ -40,14 +40,39 @@ parser.add_argument(
     ]),
     help = 'the directory logs'
 )
+                                                           # reference longitude
+parser.add_argument(
+    '-x', '--longitude', default=0,
+    help='the reference longitude (x-coordinate)'
+)
+                                                            # reference latitude
+parser.add_argument(
+    '-y', '--latitude', default=0,
+    help='the reference latitude (y-coordinate)'
+)
+                                                            # reference altitude
+parser.add_argument(
+    '-z', '--altitude', default=0,
+    help='the reference altitude (z-coordinate)'
+)
+                                                                     # distances
+parser.add_argument(
+    '-d', '--distances', default='200, 500',
+    help='distances to draw [m])'
+)
+                                                                  # figure_width
+parser.add_argument(
+    '-w', '--width', default=12,
+    help='plot width [in]'
+)
                                                                  # xPL base port
 parser.add_argument(
-    '-x', '--xplPort', default=50000,
+    '-X', '--xplPort', default=50000,
     help = 'the clients base UDP port'
 )
                                                                    # instance id
 parser.add_argument(
-    '-n', '--id', default=common.xpl_build_automatic_instance_id(),
+    '-N', '--id', default=common.xpl_build_automatic_instance_id(),
     help = 'the instance id (max. 16 chars)'
 )
                                                                # heartbeat timer
@@ -57,19 +82,19 @@ parser.add_argument(
 )
                                                                   # message type
 parser.add_argument(
-    '-y', '--type', default='xpl-trig',
+    '-T', '--type', default='xpl-trig',
     help = 'xPL message type (cmnd, stat or trig)'
 )
                                                                 # message source
 parser.add_argument(
-    '-s', '--source', default="%s-%s.%s"%(
+    '-S', '--source', default="%s-%s.%s"%(
         VENDOR_ID, DEVICE_ID, common.xpl_build_automatic_instance_id()
     ),
     help = 'xPL message source (vendor_id-device_id.instance_id)'
 )
                                                                 # message target
 parser.add_argument(
-    '-d', '--destination', default='*',
+    '-D', '--destination', default='*',
     help = 'xPL message destination (vendor_id-device_id.instance_id)'
 )
                                                                      # verbosity
@@ -77,10 +102,22 @@ parser.add_argument(
     '-v', '--verbose', action='store_true', dest='verbose',
     help = 'verbose console output'
 )
+                                      # transform string list argument to vector
+def argument_string_to_float_vector(parameter):
+    vector = []
+    for value in parameter.split(',') :
+        vector.append(float(value))
+
+    return(vector)
                                                   # parse command line arguments
 parser_arguments = parser.parse_args()
 http_server_port = int(parser_arguments.httpPort)
 log_directory = parser_arguments.logDir
+reference_longitude = float(parser_arguments.longitude)
+reference_latitude = float(parser_arguments.latitude)
+reference_altitude = float(parser_arguments.altitude)
+radiuses = argument_string_to_float_vector(parser_arguments.distances)
+figure_width = float(parser_arguments.width)
 xPL_base_port = int(parser_arguments.xplPort)
 instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
@@ -88,6 +125,9 @@ message_type = parser_arguments.type
 message_source = parser_arguments.source
 message_target = parser_arguments.destination
 verbose = parser_arguments.verbose
+
+sys.path.append(log_directory)
+import buildMap
 
 # ==============================================================================
 # Internal functions
@@ -193,6 +233,17 @@ def log_GPS_info(device, parameters) :
         "\n".join(log_file_lines[-LOG_FILE_LENGTH:])
     )
 
+#-------------------------------------------------------------------------------
+# create map
+#
+def create_map(log_file_spec) :
+                                                                     # read file
+    buildMap.create_plot(
+        log_file_spec,
+        reference_longitude, reference_latitude, reference_altitude,
+        radiuses, figure_width
+    )
+
 # ------------------------------------------------------------------------------
 # HTTP methods
 #
@@ -205,10 +256,16 @@ class http_server(BaseHTTPRequestHandler):
             print(client + ' : GET ' + path)
         path_elements = path.split('/')
         device = path_elements[1]
+                                                                      # show map
         if len(path_elements) == 2 :
-            image_file_spec = os.sep.join([log_directory, device + '.png'])
-            if os.path.exists(image_file_spec) :
-                self.send_image(image_file_spec)
+            log_file_spec = os.sep.join([log_directory, device + '.log'])
+            if os.path.exists(log_file_spec) :
+                create_map(log_file_spec)
+                image_file_spec = os.sep.join([log_directory, device + '.png'])
+                if os.path.exists(image_file_spec) :
+                    self.send_image(image_file_spec)
+                else :
+                    self.send_reply(code=HTTPStatus.NOT_FOUND)
             else :
                 self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                           # POST
@@ -220,6 +277,8 @@ class http_server(BaseHTTPRequestHandler):
             (path, parameters) = path.split('?')
         if verbose :
             print(client + ' : POST ' + path + ' ' + parameters)
+        time = []
+                                              # receive point from Sensor Logger
         if is_sensor_logger_info(path) :
             name = device_name(path)
             data = self.rfile.read(int(self.headers['Content-Length']))
@@ -227,26 +286,16 @@ class http_server(BaseHTTPRequestHandler):
             (time, latitude, longitude, altitude, speed) = sensor_logger_info(
                 data_dictionary
             )
-            if verbose :
-                print("received coordinate from Sensor Logger for %s" %name)
-                print(INDENT + "time     : %s" % time)
-                print(INDENT + "latitude : %g" % latitude)
-                print(INDENT + "longitude: %g" % longitude)
-                print(INDENT + "altitude : %g" % altitude)
-                print(INDENT + "speed    : %g" % speed)
-            log_GPS_info(name, [
-                "time : %s," % time,
-                "latitude : %g," % latitude,
-                "longitude : %g," % longitude,
-                "altitude : %g," % altitude,
-                "speed : %g" % speed
-            ])
-            self.send_reply(code=HTTPStatus.OK)
+                                                  # receive point from GPSLogger
         elif is_gps_logger_info(path) :
             name = device_name(path)
             (time, latitude, longitude, altitude, speed) = GPS_logger_info(
                 parameters
             )
+        else :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
+                                                                     # add point
+        if time :
             if verbose :
                 print("received coordinate from GPSLogger for %s" %name)
                 print(INDENT + "time     : %s" % time)
@@ -262,15 +311,44 @@ class http_server(BaseHTTPRequestHandler):
                 "speed : %g" % speed
             ])
             self.send_reply(code=HTTPStatus.OK)
-        else :
-            self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                            # PUT
     def do_PUT(self):
         client = self.client_address[0]
         path = self.path
         if verbose :
             print(client + ' : PUT ' + path)
-        self.send_reply()
+                                                        # update reference point
+        if path == '/reference' :
+            data = self.rfile.read(int(self.headers['Content-Length']))
+            data_dictionary = json.loads(data.decode(encoding='ascii'))
+            for item in data_dictionary :
+                if item == 'longitude' :
+                    global reference_longitude
+                    reference_longitude = float(data_dictionary[item])
+                    if verbose :
+                        print(
+                            INDENT +
+                            "new reference longitude : %g" % reference_longitude
+                        )
+                if item == 'latitude' :
+                    global reference_latitude
+                    reference_latitude = float(data_dictionary[item])
+                    if verbose :
+                        print(
+                            INDENT +
+                            "new reference latitude : %g" % reference_latitude
+                        )
+                if item == 'altitude' :
+                    global reference_altitude
+                    reference_altitude = float(data_dictionary[item])
+                    if verbose :
+                        print(
+                            INDENT +
+                            "new reference altitude : %g" % reference_altitude
+                        )
+            self.send_reply(code=HTTPStatus.OK)
+        else :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                          # PATCH
     def do_PATCH(self):
         client = self.client_address[0]

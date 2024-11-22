@@ -10,9 +10,20 @@ import matplotlib.pyplot as plt
 # constants
 #
 EARTH_DIAMETER = 40075 # km
+CIRCLE_FACET_NB = 64
 
 INDENT = '  '
 SEPARATOR = 80 * '-'
+
+#-------------------------------------------------------------------------------
+# transform radius string parameter to vector
+#
+def parameter_string_to_float_vector(parameter):
+    vector = []
+    for value in parameter.split(',') :
+        vector.append(float(value))
+
+    return(vector)
 
 # ------------------------------------------------------------------------------
 # command line arguments
@@ -41,10 +52,15 @@ parser.add_argument(
     '-z', '--altitude', default=0,
     help='the reference altitude (z-coordinate)'
 )
+                                                                     # distances
+parser.add_argument(
+    '-d', '--distances', default='200, 500',
+    help='distances to draw [m])'
+)
                                                                   # figure_width
 parser.add_argument(
     '-w', '--width', default=12,
-    help='the reference altitude (z-coordinate)'
+    help='plot width [in]'
 )
                                                                      # verbosity
 parser.add_argument(
@@ -57,12 +73,22 @@ log_file_spec = parser_arguments.logFile
 reference_longitude = float(parser_arguments.longitude)
 reference_latitude = float(parser_arguments.latitude)
 reference_altitude = float(parser_arguments.altitude)
+radiuses = parameter_string_to_float_vector(parser_arguments.distances)
 figure_width = float(parser_arguments.width)
 verbose = parser_arguments.verbose
 
 # ==============================================================================
 # Internal functions
 #
+
+#-------------------------------------------------------------------------------
+# transform radius string parameter to vector
+#
+def radius_string_to_vector(parameter):
+    radiuses = []
+    print(parameter)
+
+    return(radiuses)
 
 #-------------------------------------------------------------------------------
 # read log file into arrays
@@ -108,9 +134,9 @@ def project_onto_map(
 # plot map
 #
 def plot_map(x_coordinates, y_coordinates, z_coordinates,
-    plot_file_spec, figure_width
+    plot_file_spec, radiuses, figure_width
 ):
-                                                                      # plot map
+                                                              # plot coordinates
     (fig, ax) = plt.subplots(figsize=(figure_width, figure_width))
     ax.plot(x_coordinates, y_coordinates)
     #ax.plot(x_coordinates, y_coordinates, 'o')
@@ -118,6 +144,15 @@ def plot_map(x_coordinates, y_coordinates, z_coordinates,
         x_coordinates, y_coordinates,
         marker='o', c=z_coordinates, cmap=plt.cm.coolwarm
     )
+                                                                 # plot radiuses
+    for radius in radiuses :
+        x = np.array([])
+        y = np.array([])
+        for angle in range(CIRCLE_FACET_NB + 1) :
+            x = np.append(x, radius/1000*math.cos(angle*2*math.pi/CIRCLE_FACET_NB))
+            y = np.append(y, radius/1000*math.sin(angle*2*math.pi/CIRCLE_FACET_NB))
+        ax.plot(x, y, '--')
+                                                                    # write file
     ax.axis('equal')
     ax.grid()
     plt.savefig(plot_file_spec)
@@ -129,7 +164,7 @@ def plot_map(x_coordinates, y_coordinates, z_coordinates,
 def create_plot(
     log_file_spec,
     reference_longitude, reference_latitude, reference_altitude,
-    figure_width,
+    radiuses, figure_width,
     verbose=False
 ):
                                                             # read location file
@@ -175,7 +210,7 @@ def create_plot(
         print("Plotting the map to \"%s\"" % plot_file_spec)
     plot_map(
         x_coordinates, y_coordinates, z_coordinates,
-        plot_file_spec, figure_width
+        plot_file_spec, radiuses, figure_width
     )
 
 # ==============================================================================
@@ -186,6 +221,6 @@ if __name__ == "__main__":
     create_plot(
         log_file_spec,
         reference_longitude, reference_latitude, reference_altitude,
-        figure_width,
+        radiuses, figure_width,
         verbose
     )
