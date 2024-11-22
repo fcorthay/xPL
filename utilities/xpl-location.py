@@ -257,6 +257,7 @@ class http_server(BaseHTTPRequestHandler):
         path_elements = path.split('/')
         device = path_elements[1]
                                                                       # show map
+        not_found = True
         if len(path_elements) == 2 :
             log_file_spec = os.sep.join([log_directory, device + '.log'])
             if os.path.exists(log_file_spec) :
@@ -264,10 +265,9 @@ class http_server(BaseHTTPRequestHandler):
                 image_file_spec = os.sep.join([log_directory, device + '.png'])
                 if os.path.exists(image_file_spec) :
                     self.send_image(image_file_spec)
-                else :
-                    self.send_reply(code=HTTPStatus.NOT_FOUND)
-            else :
-                self.send_reply(code=HTTPStatus.NOT_FOUND)
+                    not_found = False
+        if not_found :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                           # POST
     def do_POST(self):
         client = self.client_address[0]
@@ -362,7 +362,19 @@ class http_server(BaseHTTPRequestHandler):
         path = self.path
         if verbose :
             print(client + ':  DELETE ' + path)
-        self.send_reply()
+        path_elements = path.split('/')
+        device = path_elements[1]
+                                                             # clear a recording
+        not_found = True
+        if len(path_elements) == 2 :
+            log_file_spec = os.sep.join([log_directory, device + '.log'])
+            if os.path.exists(log_file_spec) :
+                os.remove(log_file_spec)
+                not_found = False
+        if not_found :
+            self.send_reply(code=HTTPStatus.NOT_FOUND)
+        else :
+            self.send_reply(code=HTTPStatus.OK)
                                                                  # HTML response
     def send_reply(self, HTML='', code=HTTPStatus.OK):
         if code == HTTPStatus.OK :
