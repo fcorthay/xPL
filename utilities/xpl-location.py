@@ -193,48 +193,6 @@ def log_GPS_info(device, parameters) :
         "\n".join(log_file_lines[-LOG_FILE_LENGTH:])
     )
 
-
-#-------------------------------------------------------------------------------
-# String to byte array
-#
-def to_bytes(string) :
-    return(bytes(string, "utf-8"))
-
-#-------------------------------------------------------------------------------
-# HTTP GET service
-#
-class MyServer(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-                                                               # analyse request
-        (path, params) = self.path.split('?')
-        if path[0] == '/' :
-            path = path[1:]
-        parameters = params.split('&')
-        print(path)
-        print(parameters)
-                                                                      # log info
-        log_GPS_info(path, parameters)
-                                                                 # send response
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(to_bytes(
-            "<html><head><title>GPS tracking service</title></head>"
-        ))
-        self.wfile.write(to_bytes("<body>"))
-        self.wfile.write(to_bytes("<p>from %s:" % path))
-        for parameter in parameters :
-            self.wfile.write(to_bytes("<ul>%s</ul>" % parameter))
-        self.wfile.write(to_bytes("</p>"))
-        self.wfile.write(to_bytes("</body></html>"))
-
-    def do_POST(self):
-                                                               # analyse request
-        path = self.path
-        print(path)
-        data_string = self.rfile.read(int(self.headers['Content-Length']))
-        print(data_string)
-
 # ------------------------------------------------------------------------------
 # HTTP methods
 #
@@ -243,7 +201,16 @@ class http_server(BaseHTTPRequestHandler):
     def do_GET(self):
         client = self.client_address[0]
         path = self.path
-        print(client + ' : GET ' + path)
+        if verbose :
+            print(client + ' : GET ' + path)
+        path_elements = path.split('/')
+        device = path_elements[1]
+        if len(path_elements) == 2 :
+            image_file_spec = os.sep.join([log_directory, device + '.png'])
+            if os.path.exists(image_file_spec) :
+                self.send_image(image_file_spec)
+            else :
+                self.send_reply(code=HTTPStatus.NOT_FOUND)
                                                                           # POST
     def do_POST(self):
         client = self.client_address[0]
@@ -251,7 +218,8 @@ class http_server(BaseHTTPRequestHandler):
         parameters = ''
         if '?' in path :
             (path, parameters) = path.split('?')
-        print(client + ' : POST ' + path + ' ' + parameters)
+        if verbose :
+            print(client + ' : POST ' + path + ' ' + parameters)
         if is_sensor_logger_info(path) :
             name = device_name(path)
             data = self.rfile.read(int(self.headers['Content-Length']))
@@ -300,32 +268,42 @@ class http_server(BaseHTTPRequestHandler):
     def do_PUT(self):
         client = self.client_address[0]
         path = self.path
-        print(client + ' : PUT ' + path)
+        if verbose :
+            print(client + ' : PUT ' + path)
         self.send_reply()
                                                                          # PATCH
     def do_PATCH(self):
         client = self.client_address[0]
         path = self.path
-        print(client + ' : PATCH ' + path)
-        print('patch:/' + path)
+        if verbose :
+            print(client + ' : PATCH ' + path)
         self.send_reply()
                                                                         # DELETE
     def do_DELETE(self):
         client = self.client_address[0]
         path = self.path
-        print(client + ':  DELETE ' + path)
-        print('delete:/' + path)
+        if verbose :
+            print(client + ':  DELETE ' + path)
         self.send_reply()
                                                                  # HTML response
-    def send_reply(self, info='', code=HTTPStatus.OK):
-        path = self.path
+    def send_reply(self, HTML='', code=HTTPStatus.OK):
         if code == HTTPStatus.OK :
             self.send_response(code)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-#            self.wfile.write(build_HTML_reply(path, info).encode("ascii"))
+            self.wfile.write(HTML.encode("ascii"))
         else :
-            self.send_error(code, explain="Path was \"%s\"" % path)
+            self.send_error(code, explain="Path was \"%s\"" % self.path)
+                                                           # HTML page for image
+    def send_image(self, image_file_spec, image_type='png'):
+        image_size = os.stat(image_file_spec).st_size
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-type', "image/%s" % image_type)
+        self.send_header('Content-length', image_size)
+        self.end_headers()
+        image_file = open(image_file_spec, 'rb')
+        self.wfile.write(image_file.read())
+        image_file.close()
 
 
 # ==============================================================================
