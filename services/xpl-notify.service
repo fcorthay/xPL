@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL push notification service
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/utilities/xpl-notify.py -T mytopic
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

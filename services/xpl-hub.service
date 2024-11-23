@@ -1,0 +1,14 @@
+[Unit]
+Description=xPL hub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/xPL-base/xpl-hub.pl -l /tmp/xpl-hub.log
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

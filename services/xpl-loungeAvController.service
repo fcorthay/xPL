@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL lounge AV controller
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/audio-video/xpl-avController-denon.pl -n loungeAmp
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
