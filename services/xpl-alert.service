@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL audio alert
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/utilities/xpl-alert.pl -s ring.wav
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
