@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL device location service
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/utilities/xpl-location.py -x 7.3606 -y 46.2331 -z 500
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

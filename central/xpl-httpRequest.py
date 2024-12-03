@@ -22,11 +22,6 @@ SEPARATOR = 80 * '-'
 # command line arguments
 #
 parser = argparse.ArgumentParser()
-                                                                     # verbosity
-parser.add_argument(
-    '-v', '--verbose', action='store_true', dest='verbose',
-    help = 'verbose console output'
-)
                                                                  # Ethernet port
 parser.add_argument(
     '-p', '--port', default=50000,
@@ -47,31 +42,18 @@ parser.add_argument(
     '-w', '--wait', default=0,
     help = 'the startup sleep interval in seconds'
 )
-                                                            # Notify server name
+                                                                     # verbosity
 parser.add_argument(
-    '-s', '--server', default='ntfy.sh',
-    help = 'the notify server name'
-)
-                                                            # Notify server port
-parser.add_argument(
-    '-P', '--notifyPort', default=80,
-    help = 'the notify server port'
-)
-                                                                  # Notify topic
-parser.add_argument(
-    '-T', '--topic', default='myTopic',
-    help = 'the notify server port'
+    '-v', '--verbose', action='store_true', dest='verbose',
+    help = 'verbose console output'
 )
                                                   # parse command line arguments
 parser_arguments = parser.parse_args()
-verbose = parser_arguments.verbose
 Ethernet_base_port = parser_arguments.port
 instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
 startup_delay = int(parser_arguments.wait)
-notify_server_name = parser_arguments.server
-notify_server_port = int(parser_arguments.notifyPort)
-notify_topic = parser_arguments.topic
+verbose = parser_arguments.verbose
 
 debug = False
 
@@ -172,14 +154,51 @@ while not end :
                     request_URL = request_URL + parameters
                     if verbose :
                         print("request \"%s %s\"" % (method, request_URL))
+                                                                           # GET
                     if method == 'GET' :
-                        request = requests.get(request_URL)
-                    if method == 'POST' :
-#                        request = requests.post(request_URL, data='')
-                        request = requests.post(request_URL)
-                    if method == 'PUT' :
-                        request = requests.put(request_URL)
+                        try :
+                            request = requests.get(request_URL)
+                        except:
+                            if verbose :
+                                print(
+                                    INDENT +
+                                    "request \"%s\" rejected" % request_URL
+                                )
+                                                                          # POST
+                    elif method == 'POST' :
+                        try :
+#                            request = requests.post(request_URL, data='')
+                            request = requests.post(request_URL)
+                        except:
+                            if verbose :
+                                print(
+                                    INDENT +
+                                    "request \"%s\" rejected" % request_URL
+                                )
+                                                                           # PUT
+                    elif method == 'PUT' :
+                        try :
+                            request = requests.put(request_URL)
+                        except:
+                            if verbose :
+                                print(
+                                    INDENT +
+                                    "request \"%s\" rejected" % request_URL
+                                )
+                                                                        # DELETE
+                    elif method == 'DELETE' :
+                        try :
+                            request = requests.delete(request_URL)
+                        except:
+                            if verbose :
+                                print(
+                                    INDENT +
+                                    "request \"%s\" rejected" % request_URL
+                                )
                     if verbose :
-                        print(INDENT + request.reason)
+                        try :
+                            print(INDENT + requests.reason)
+                        except:
+                            pass
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)
