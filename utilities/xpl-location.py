@@ -3,6 +3,7 @@
 import os
 import sys
 import argparse
+import math
 import datetime
 import json
 import http.server
@@ -126,12 +127,34 @@ message_source = parser_arguments.source
 message_target = parser_arguments.destination
 verbose = parser_arguments.verbose
 
+debug = False
+
 sys.path.append(log_directory)
 import buildMap
 
 # ==============================================================================
 # Internal functions
 #
+
+#-------------------------------------------------------------------------------
+# send xPL trigger
+#
+def send_xPL_trigger(device, distance_state) :
+                                                             # create xPL socket
+    (client_port, xpl_socket) = common.xpl_open_socket(
+        common.XPL_PORT, xPL_base_port
+    )
+                                                                  # send message
+    message_type = 'xpl-trig'
+    message_class = CLASS_ID + '.basic'
+    body_dict = {'device' : device, 'distance' : distance_state}
+    common.xpl_send_message(
+        xpl_socket, common.XPL_PORT,
+        message_type, message_source, message_target, message_class,
+        body_dict
+    );
+                                                              # close xPL socket
+    xpl_socket.close();
 
 # ------------------------------------------------------------------------------
 # get device name
@@ -217,6 +240,48 @@ def sensor_logger_info(data_dictionary) :
     return(time, latitude, longitude, altitude, speed)
 
 #-------------------------------------------------------------------------------
+# calculate distance from reference point
+#
+def device_distance(longitude, latitude) :
+    EARTH_DIAMETER = 40075*1E3
+    reference_diameter = EARTH_DIAMETER*math.cos(reference_latitude/360*math.pi)
+    x_distance = (longitude - reference_longitude)*reference_diameter/360
+    y_distance = (latitude - reference_latitude)*EARTH_DIAMETER/360
+    distance = math.sqrt(x_distance**2 + y_distance**2)
+
+    return(distance)
+
+
+#-------------------------------------------------------------------------------
+# check distance state
+#
+def check_distance_state(device, longitude, latitude) :
+                                                            # calculate distance
+    global device_distance_state
+    distance = device_distance(longitude, latitude)
+                                                                # find new state
+    distance_state = 'far'
+    if distance < radiuses[0] :
+        distance_state = 'near'
+    elif distance < radiuses[-1] :
+        distance_state = 'middle'
+                                                              # check if trigger
+    if device in device_distance_state.keys() :
+        if distance_state == 'near'                     \
+            and device_distance_state[device] != 'near' \
+        :
+            if verbose :
+                print('Sending trigger for near location')
+            send_xPL_trigger(device, distance_state)
+        if distance_state == 'far'                     \
+            and device_distance_state[device] != 'far' \
+        :
+            if verbose :
+                print('Sending trigger for far location')
+            send_xPL_trigger(device, distance_state)
+    device_distance_state[device] = distance_state
+
+#-------------------------------------------------------------------------------
 # log GPS info to file
 #
 def log_GPS_info(device, parameters) :
@@ -227,7 +292,11 @@ def log_GPS_info(device, parameters) :
     if os.path.isfile(log_file_spec) :
         log_file_lines = open(log_file_spec, "r").read().split("\n")
                                                                       # add info
-    log_file_lines.append(' '.join(parameters))
+    log_line = ''
+    for (parameter, value) in parameters.items() :
+        log_line = "%s, %s : %s" % (log_line, parameter, value)
+    log_line = log_line[2:]
+    log_file_lines.append(log_line)
                                                                     # write file
     open(log_file_spec, "w").write(
         "\n".join(log_file_lines[-LOG_FILE_LENGTH:])
@@ -252,7 +321,7 @@ class http_server(BaseHTTPRequestHandler):
     def do_GET(self):
         client = self.client_address[0]
         path = self.path
-        if verbose :
+        if debug :
             print(client + ' : GET ' + path)
         path_elements = path.split('/')
         device = path_elements[1]
@@ -275,9 +344,9 @@ class http_server(BaseHTTPRequestHandler):
         parameters = ''
         if '?' in path :
             (path, parameters) = path.split('?')
-        if verbose :
+        if debug :
             print(client + ' : POST ' + path + ' ' + parameters)
-        time = []
+        time = ''
                                               # receive point from Sensor Logger
         if is_sensor_logger_info(path) :
             name = device_name(path)
@@ -299,23 +368,25 @@ class http_server(BaseHTTPRequestHandler):
             if verbose :
                 print("received coordinate from GPSLogger for %s" %name)
                 print(INDENT + "time     : %s" % time)
-                print(INDENT + "latitude : %g" % latitude)
                 print(INDENT + "longitude: %g" % longitude)
+                print(INDENT + "latitude : %g" % latitude)
                 print(INDENT + "altitude : %g" % altitude)
                 print(INDENT + "speed    : %g" % speed)
-            log_GPS_info(name, [
-                "time : %s," % time,
-                "latitude : %g," % latitude,
-                "longitude : %g," % longitude,
-                "altitude : %g," % altitude,
-                "speed : %g" % speed
-            ])
+            parameters = {
+                'time' : time,
+                'latitude' : latitude,
+                'longitude' : longitude,
+                'altitude' : altitude,
+                'speed' : speed
+            }
+            log_GPS_info(name, parameters)
+            check_distance_state(name, longitude, latitude)
             self.send_reply(code=HTTPStatus.OK)
                                                                            # PUT
     def do_PUT(self):
         client = self.client_address[0]
         path = self.path
-        if verbose :
+        if debug :
             print(client + ' : PUT ' + path)
                                                         # update reference point
         if path == '/reference' :
@@ -353,15 +424,17 @@ class http_server(BaseHTTPRequestHandler):
     def do_PATCH(self):
         client = self.client_address[0]
         path = self.path
-        if verbose :
+        if debug :
             print(client + ' : PATCH ' + path)
         self.send_reply()
                                                                         # DELETE
     def do_DELETE(self):
         client = self.client_address[0]
         path = self.path
-        if verbose :
+        if debug :
             print(client + ':  DELETE ' + path)
+        if verbose :
+            print("received deletion command for %s" % path)
         path_elements = path.split('/')
         device = path_elements[1]
                                                              # clear a recording
@@ -394,7 +467,9 @@ class http_server(BaseHTTPRequestHandler):
         image_file = open(image_file_spec, 'rb')
         self.wfile.write(image_file.read())
         image_file.close()
-
+                                                           # silent terminal log
+    def log_message(self, format, *args):
+        return
 
 # ==============================================================================
 # Main script
@@ -404,6 +479,10 @@ if verbose :
     print(SEPARATOR)
     print("Started listening for GPS data on port %s" % http_server_port)
     print(INDENT + "Logging to %s" % log_directory)
+    print(INDENT + "Reference longitude : %9.6f" % reference_longitude)
+    print(INDENT + "Reference latitude  : %9.6f" % reference_latitude)
+    print(INDENT + "Reference altitude  : %g" % reference_altitude)
+device_distance_state = {}
                                                                     # run server
 server = HTTPServer(('', http_server_port), http_server)
 try:
