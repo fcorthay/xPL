@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL KNX write
+After=xpl-hub.service knxd.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/lights-blinds/xpl-knxWrite.pl -n home
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

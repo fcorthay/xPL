@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL KNX read
+After=xpl-hub.service knxd.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/bin/bash -c '/usr/bin/knxtool groupsocketlisten ip:localhost | /home/control/Controls/xPL/lights-blinds/xpl-knxRead.pl -n home'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
