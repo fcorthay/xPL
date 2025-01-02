@@ -40,7 +40,12 @@ parser.add_argument(
     '-s', '--start', default=315,
     help = 'the start color in degrees'
 )
-                                                                 # Ethernet port
+                                                           # HTTP request server
+parser.add_argument(
+    '-r', '--request', default='*',
+    help = 'name of the xpl-httpRequest service instance'
+)
+                                                             # xPL Ethernet port
 parser.add_argument(
     '-p', '--port', default=50000,
     help = 'the clients base UDP port'
@@ -70,6 +75,7 @@ parser_arguments = parser.parse_args()
 led_strip_ip_address = parser_arguments.led
 hand_type = parser_arguments.hand
 start_color = int(parser_arguments.start)
+request_service_name = parser_arguments.request
 Ethernet_base_port = parser_arguments.port
 instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
@@ -147,6 +153,8 @@ message_source = "%s-%s.%s"%(
     VENDOR_ID, DEVICE_ID, common.xpl_build_automatic_instance_id()
 )
 message_target = '*'
+if request_service_name != '*' :
+    message_target = 'dspc-request.' + request_service_name
 message_class = 'request.basic'
 
 while not end :
@@ -168,18 +176,18 @@ while not end :
                 if verbose :
                     print("time is %s" % time)
                     print(INDENT + "setting color to [%d, %d, %d]" % (red, green, blue))
-                    message_body = {
-                        'server' : led_strip_ip_address,
-                        'path'   : 'light/0',
-                        'red'    : "%d" % red,
-                        'green'  : "%d" % green,
-                        'blue'   : "%d" % blue
-                    }
-                    common.xpl_send_message(
-                        xpl_socket, common.XPL_PORT,
-                        message_type, message_source, message_target, message_class,
-                        message_body
-                    );
+                message_body = {
+                    'server' : led_strip_ip_address,
+                    'path'   : 'light/0',
+                    'red'    : "%d" % red,
+                    'green'  : "%d" % green,
+                    'blue'   : "%d" % blue
+                }
+                common.xpl_send_message(
+                    xpl_socket, common.XPL_PORT,
+                    message_type, message_source, message_target, message_class,
+                    message_body
+                );
 
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)

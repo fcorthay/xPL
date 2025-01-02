@@ -57,7 +57,7 @@ my $startup_sleep_time = $opts{'w'} || 0;
 
 $configuration{'soundDirectory'} = $opts{'d'} || dirname($0) . '/sounds';
 $configuration{'soundFile'}      = $opts{'s'} || 'doorBell.wav';
-$configuration{'playCommand'}    = $opts{'c'} || '/usr/bin/aplay';
+$configuration{'playCommand'}    = $opts{'c'} || 'SDL_AUDIODRIVER="alsa" AUDIODEV="hw:3" /usr/bin/ffplay -nodisp -autoexit -loglevel quiet';
 
 
 ################################################################################
