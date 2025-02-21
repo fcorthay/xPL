@@ -21,6 +21,8 @@ $indent = ' ' x 2;
 my %configuration;
 $configuration{'writeCommand'} = '/usr/bin/knxtool groupswrite';
 $configuration{'server'} = 'ip:localhost';
+$configuration{'logFile'} = '/tmp/knxWrite.log';
+$configuration{'logFileLength'} = 100;
 
 
 ################################################################################
@@ -42,6 +44,8 @@ die("\n".
     "${indent}-w secs the startup sleep interval\n".
     "${indent}-s url  the server URL\n".
     "${indent}-c cmd  the knxd groupswrite command\n".
+    "${indent}-l file the log file\n".
+    "${indent}-z size the maximal log file line number\n".
     "\n".
     "Writes KNX commands upon receipt of xPL messages.\n".
     "\n".
@@ -57,6 +61,8 @@ my $startup_sleep_time = $opts{'w'} || 0;
 
 $configuration{'server'} = $opts{'s'} || $configuration{'server'};
 $configuration{'writeCommand'} = $opts{'c'} || $configuration{'writeCommand'};
+$configuration{'logFile'} = $opts{'l'} || $configuration{'logFile'};
+$configuration{'logFileLength'} = $opts{'z'} || $configuration{'logFileLength'};
 
 
 ################################################################################
@@ -89,6 +95,32 @@ sub build_knxd_command {
 #print "message: $command\n";
 
   return($command)
+}
+
+#-------------------------------------------------------------------------------
+# Log a groupswrite message
+#
+sub log_knxd_command {
+
+  my ($message, $log_file, $log_file_length) = @_;
+                                                               # read log file
+  my @lines;
+  if (-e $log_file) {
+    open (LOG_FILE, "< $log_file") or die "Can't open log file for read: $!";
+      @lines = <LOG_FILE>;
+    close LOG_FILE or die "Cannot close log file: $!"; 
+  }
+                                                              # append message
+  push(@lines, $message);
+                                                               # trim log file
+  my $line_nb = scalar @lines;
+  if ($line_nb > $log_file_length) {
+    splice(@lines, 0, $log_file_length-$line_nb+2);
+  }
+                                                              # write log file
+  open (LOG_FILE, "> $log_file") or die "Can't open log file for write: $!";
+  print LOG_FILE  (join('', @lines), "\n");
+  close LOG_FILE or die "Cannot close log file: $!"; 
 }
 
 
@@ -140,16 +172,31 @@ while ( (defined($xpl_socket)) && ($xpl_end == 0) ) {
                                                               # process commands
       if ($schema eq "$class_id.basic") {
         if ($type eq 'xpl-cmnd') {
-          my $command = $body{'command'};
+                                                               # log xPL message
+          my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+            localtime(time);
+          my $timestamp = sprintf(
+            "%02d.%02d.%04d %02d:%02d:%02d",
+            $mday, $mon+1, $year+1900, $hour, $min, $sec
+          );
+          log_knxd_command(
+            "$timestamp : $body{'group'} > $body{'data'}",
+            $configuration{'logFile'}, $configuration{'logFileLength'}
+          );
           if ($verbose > 0) {
             print("Received command from \"$source\"\n");
           }
-          my $message = build_knxd_command(\%configuration, %body);
-          if ($message) {
+          my $command = build_knxd_command(\%configuration, %body);
+          if ($command) {
             if ($verbose == 1) {
-              print($indent . "sending \"$message\"\n");
+              print($indent . "sending \"$command\"\n");
             }
-            system("$message");
+                                                              # log bash command
+            log_knxd_command(
+              "$indent$command",
+              $configuration{'logFile'}, $configuration{'logFileLength'}
+            );
+            system("$command");
           }
         }
       }

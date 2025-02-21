@@ -7,11 +7,17 @@ import time
 sys.path.append(sys.path[0]+'/../xPL-base')
 import common
 import math
-import colorsys
 
 # ------------------------------------------------------------------------------
 # constants
 #
+VALUES_PER_PIXEL = 4
+OFFSET_RED   = 0
+OFFSET_GREEN = 1
+OFFSET_BLUE  = 2
+OFFSET_ALPHA = 3
+COMPONENT_MAX = 255
+
 VENDOR_ID = 'dspc';             # from xplproject.org
 DEVICE_ID = 'light';            # max 8 chars
 CLASS_ID = 'light';             # max 8 chars
@@ -25,9 +31,14 @@ SEPARATOR = 80 * '-'
 # command line arguments
 #
 parser = argparse.ArgumentParser()
-                                                                     # LED strip
+                                                          # LED strip IP address
 parser.add_argument(
-    '-l', '--led', default='192.168.1.70',
+    '-A', '--address', default='192.168.1.71',
+    help = 'the LED strip\'s IP address'
+)
+                                                          # LED strip controller
+parser.add_argument(
+    '-C', '--ledController', default='Shelly-2',
     help = 'the LED strip\'s IP address'
 )
                                                                     # clock hand
@@ -35,10 +46,25 @@ parser.add_argument(
     '-H', '--hand', default='hour',
     help = 'the clock hand (\'hour\' or \'minute\')'
 )
-                                                                   # start color
+                                                                  # start colour
 parser.add_argument(
-    '-s', '--start', default=315,
-    help = 'the start color in degrees'
+    '-s', '--start', default=0,
+    help = 'the start colour in degrees'
+)
+                                                                # turn direction
+parser.add_argument(
+    '-c', '--clockwise', action='store_true', dest='clockwise',
+    help = 'turn clockwise'
+)
+                                                                # amplitude path
+parser.add_argument(
+    '-a', '--amplitude', default='hexagon',
+    help = 'the amplitude path (hexagon, circle, reuleaux or triangle)'
+)
+                                                                  # warm colours
+parser.add_argument(
+    '-W', '--warmColours', action='store_true', dest='warmColours',
+    help = 'emphasize warm colours'
 )
                                                            # HTTP request server
 parser.add_argument(
@@ -72,9 +98,13 @@ parser.add_argument(
 )
                                                   # parse command line arguments
 parser_arguments = parser.parse_args()
-led_strip_ip_address = parser_arguments.led
+LED_strip_ip_address = parser_arguments.address
+LED_strip_controller = parser_arguments.ledController
 hand_type = parser_arguments.hand
-start_color = int(parser_arguments.start)
+start_colour = int(parser_arguments.start)
+turn_clockwise = parser_arguments.clockwise
+amplitude_path = parser_arguments.amplitude
+emphasize_warm_colors = parser_arguments.warmColours
 request_service_name = parser_arguments.request
 Ethernet_base_port = parser_arguments.port
 instance_id = parser_arguments.id
@@ -85,29 +115,152 @@ verbose = parser_arguments.verbose
 # ==============================================================================
 # Internal functions
 #
+# ------------------------------------------------------------------------------
+# find triant of pixel coordinate
+#
+def pixel_triant(x, y):
+    triant = 0
+                                                                     # hue angle
+    angle = math.atan2(y, x)
+                                                                  # first triant
+    if (angle >= 0) and (angle < 2/3*math.pi) :
+        triant = 1
+                                                                  # third triant
+    elif (angle >= -2/3*math.pi) and (angle < 0) :
+        triant = 3
+                                                                 # second triant
+    else :
+        triant = 2
+
+    return triant
+
+# ------------------------------------------------------------------------------
+# find R and G components of a pixel in the first triant
+#
+def R_G(x, y):
+                                                                      # triangle
+    red_component = 2*(x + round(y*math.tan(math.pi/6)))
+    green_component = 2*round(y/math.cos(math.pi/6))
+                                                                    # limitation
+#    if red_component < 0 :
+#        red_component = 0
+#    if green_component < 0 :
+#        green_component = 0
+    if red_component > COMPONENT_MAX :
+        red_component = COMPONENT_MAX
+    if green_component > COMPONENT_MAX :
+        green_component = COMPONENT_MAX
+
+    return(red_component, green_component)
+
+# ------------------------------------------------------------------------------
+# find G and B components of a pixel in the second triant
+#
+def G_B(x, y):
+                                                                    # rotate 60°
+    angle = math.atan2(y, x)
+    amplitude = math.sqrt(x*x + y*y)
+    rotated_angle = angle - 2/3*math.pi
+    rotated_x = round(amplitude * math.cos(rotated_angle))
+    rotated_y = round(amplitude * math.sin(rotated_angle))
+                                               # get component from first triant
+    (green_component, blue_component) = R_G(rotated_x, rotated_y)
+
+    return(green_component, blue_component)
+
+# ------------------------------------------------------------------------------
+# find R and B components of a pixel in the third triant
+#
+def R_B(x, y):
+                                               # get component from first triant
+    (red_component, blue_component) = R_G(x, -y)
+
+    return(red_component, blue_component)
+
+# ------------------------------------------------------------------------------
+# find R G B components of a pixel in any triant
+#
+def R_G_B(x, y):
+    red_component   = 0
+    green_component = 0
+    blue_component  = 0
+                                                            # select from triant
+    if pixel_triant(x, y) == 1 :
+        (red_component, green_component)  = R_G(x, y)
+    elif pixel_triant(x, y) == 2 :
+        (green_component, blue_component) = G_B(x, y)
+    else :
+        (red_component, blue_component)   = R_B(x, y)
+
+    return(red_component, green_component, blue_component)
 
 #-------------------------------------------------------------------------------
-# Execute a command together with its arguments
+# pick colour code for a given angle
 #
-def color_code(time) :
-    hue = 1
-    saturation = 1
-    value = 1
-                                                                  # select count
-    count = time[:time.index('h')]
-    max_count = 24
-    if hand_type == 'minute' :
-        max_count = 60
-        count = time[time.index('h')+1:]
-                                                                      # find hue
-    hue = (start_color/360-float(count)/max_count) % 1
-                                                                    # HSV to RGB
-    (red, green, blue) = colorsys.hsv_to_rgb(hue, saturation, value)
-    red   = round(255*red)
-    green = round(255*green)
-    blue  = round(255*blue)
+def colour_code(division, division_nb) :
+                                                                  # colour angle
+    pick_angle = division/division_nb*2*math.pi
+#    print("%d/%d %d°" % (division, division_nb, pick_angle/math.pi*180))
+    if turn_clockwise :
+        pick_angle = 2*math.pi - pick_angle
+#    print("%d° after clockwise control" % (pick_angle/math.pi*180))
+    if emphasize_warm_colors :
+        pick_angle = 2*math.pi*(
+            2/3*(pick_angle/(2*math.pi))**2 + 1/3*pick_angle/(2*math.pi)
+        )
+#    print("%d° after emphasis" % (pick_angle/math.pi*180))
+    pick_angle = (pick_angle + start_colour/360*2*math.pi) % (2*math.pi)
+#    print("%d° after offset" % (pick_angle/math.pi*180))
+                                                              # colour amplitude
+    if amplitude_path == 'triangle':
+        angle_modulo = pick_angle % (2/3*math.pi) + 2/3*math.pi
+        pick_amplitude = -COMPONENT_MAX/2/(2*math.cos(angle_modulo))
+    elif amplitude_path == 'reuleaux':
+        radius = 1.5*COMPONENT_MAX/2/math.cos(math.pi/6)
+        x_center = COMPONENT_MAX/2
+        y_center = 0
+        angle_triant_2 = (pick_angle % (2*math.pi/3)) + 2*math.pi/3
+        pick_amplitude = radius* \
+            math.sin(math.pi/2-angle_triant_2/2)/math.sin(angle_triant_2)
+        if abs(angle_triant_2 - math.pi) < 1E-6 :
+            pick_amplitude = radius - COMPONENT_MAX/2
+            pick_amplitude = COMPONENT_MAX/2*math.cos(math.pi/6)  # why ?
+    elif amplitude_path == 'circle' :
+        pick_amplitude = COMPONENT_MAX/2*math.cos(math.pi/6)
+        if pick_angle % (2*math.pi/3) == 0:
+            pick_amplitude = COMPONENT_MAX/2*math.cos(math.pi/12)  # why ?
+    else :  # hexagon
+        angle_modulo = pick_angle % (math.pi/6)
+        pick_amplitude = COMPONENT_MAX/2*math.cos(angle_modulo)
+                                                  # colour cartesian coordinates
+    pick_x = round(pick_amplitude*math.cos(pick_angle))
+    pick_y = round(pick_amplitude*math.sin(pick_angle))
+#    print("%d %d° (%d, %d)" % \
+#        (pick_amplitude, pick_angle/math.pi*180, pick_x, pick_y))
+                                                        # colour RGB coordinates
+    (red_component, green_component, blue_component) = R_G_B(pick_x, pick_y)
 
-    return(red, green, blue)
+    return(red_component, green_component, blue_component)
+
+#-------------------------------------------------------------------------------
+# set LED strip colour
+#
+def build_LEDs_colour_message(red, green, blue) :
+    message_body = {'server' : LED_strip_ip_address}
+                                                                    # build path
+    if LED_strip_controller == 'Shelly-1':
+        message_body['path'] = 'light/0'
+        message_body['red'] = "%d" % red
+        message_body['green'] = "%d" % green
+        message_body['blue'] = "%d" % blue
+        message_body['transition'] = '0'
+    else :
+        message_body['path'] = 'rpc/rgbw.set'
+        message_body['id'] = '0'
+        message_body['rgb'] = "[%d,%d,%d]" % (red, green, blue)
+        message_body['transition_duration'] = '0.5'
+
+    return(message_body)
 
 # ------------------------------------------------------------------------------
 # catch ctrl-C interrupt
@@ -138,8 +291,15 @@ if verbose :
     os.system('clear||cls')
     print(SEPARATOR)
     print("Listening to the clock")
-    print(INDENT + "class id    : %s" % CLASS_ID)
-    print(INDENT + "instance id : %s" % instance_id)
+    print(INDENT + "class id              : %s" % CLASS_ID)
+    print(INDENT + "instance id           : %s" % instance_id)
+    print(INDENT + "LED strip IP address  : %s" % LED_strip_ip_address)
+    print(INDENT + "LED strip controller  : %s" % LED_strip_controller)
+    print(INDENT + "hand type             : %s" % hand_type)
+    print(INDENT + "start colour angle    : %d" % start_colour)
+    print(INDENT + "clockwise             : %r" % turn_clockwise)
+    print(INDENT + "amplitude path        : %s" % amplitude_path)
+    print(INDENT + "emphasize warm colors : %r" % emphasize_warm_colors)
     print()
 
 # ..............................................................................
@@ -157,6 +317,22 @@ if request_service_name != '*' :
     message_target = 'dspc-request.' + request_service_name
 message_class = 'request.basic'
 
+division_nb = 24
+if hand_type == 'minute' :
+    division_nb = 60
+
+import time
+division = int(time.strftime("%H"))
+if hand_type == 'minute' :
+    division = int(time.strftime("%M"))
+(red, green, blue) = colour_code(division, division_nb)
+message_body = build_LEDs_colour_message(red, green, blue)
+common.xpl_send_message(
+    xpl_socket, common.XPL_PORT,
+    message_type, message_source, message_target, message_class,
+    message_body
+);
+
 while not end :
                                                  # check time and send heartbeat
     last_heartbeat_time = common.xpl_send_heartbeat(
@@ -172,17 +348,17 @@ while not end :
         if schema == 'clock.tick' :
             time = body['time']
             if (hand_type == 'minute') or (time.endswith('h00')) :
-                (red, green, blue) = color_code(time)
+                (hour, minute) = time.split('h')
+                division = int(hour)
+                if hand_type == 'minute' :
+                    division = int(minute)
+                (red, green, blue) = colour_code(division, division_nb)
                 if verbose :
                     print("time is %s" % time)
-                    print(INDENT + "setting color to [%d, %d, %d]" % (red, green, blue))
-                message_body = {
-                    'server' : led_strip_ip_address,
-                    'path'   : 'light/0',
-                    'red'    : "%d" % red,
-                    'green'  : "%d" % green,
-                    'blue'   : "%d" % blue
-                }
+                    print(INDENT + 
+                        "setting colour to [%3d, %3d, %3d]" % (red, green, blue)
+                    )
+                message_body = build_LEDs_colour_message(red, green, blue)
                 common.xpl_send_message(
                     xpl_socket, common.XPL_PORT,
                     message_type, message_source, message_target, message_class,
