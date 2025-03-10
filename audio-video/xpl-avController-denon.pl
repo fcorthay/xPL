@@ -412,12 +412,21 @@ Should have C<value=dd>: decimal value between 0 and 100 or C<value=ask>.
 
 =item B<surround=mode>
 
+Can have : C<surround=direct>, C<surround=pure>, C<surround=stereo>,
+C<surround=standard>, C<surround=dolby>, C<surround=dts>, C<surround=wide>
+C<surround=7ch>, C<surround=rock>, C<surround=jazz>, C<surround=classic>,
+C<surround=mono>, C<surround=matrix>, C<surround=virtual> or C<surround=ask>.
+
 =item B<audio=source>
-Can have C<audio=phono>, C<audio=cd>, C<audio=tuner>, C<audio=dvd>,
+
+Can have : C<audio=phono>, C<audio=cd>, C<audio=tuner>, C<audio=dvd>,
 C<audio=hdp>, C<audio=tv>, C<audio=sat>, C<audio=vcr>, C<audio=dvr>,
 C<audio=aux>, C<audio=net>, C<audio=usb> or C<audio=ask>.
 
 =item B<video=source>
+
+Can have : C<video=dvd>, C<video=hdp>, C<video=tv>, C<video=sat>, C<video=vcr>,
+C<video=dvr>, C<video=aux> or C<video=ask>.
 
 =back
 
