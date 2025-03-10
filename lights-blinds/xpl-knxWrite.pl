@@ -88,7 +88,7 @@ sub build_knxd_command {
   $data =~ s/0x//g;
                                                           # build command string
   my $command = "$$configuration_ref{'writeCommand'} $$configuration_ref{'server'}";
-  $command .= " $group_address $data > /dev/null";
+  $command .= " $group_address $data > /dev/null &";
   if ($message_OK == 0) {
     $command = '';
   }

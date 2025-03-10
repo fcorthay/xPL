@@ -29,7 +29,7 @@ $configuration{'ipAddress'} = '192.168.1.205';
 #
 use Getopt::Std;
 my %opts;
-getopts('hvn:t:w:i:', \%opts);
+getopts('hvn:t:w:a:', \%opts);
 
 die("\n".
     "Usage: $0 [serial_port_device] [serial_port_settings]\n".
@@ -54,7 +54,7 @@ my $instance_id = $opts{'n'} || xpl_build_automatic_instance_id;
 my $heartbeat_interval = $opts{'t'} || 5;
 my $startup_sleep_time = $opts{'w'} || 0;
 
-$configuration{'ipAddress'} = $opts{'i'} || $configuration{'ipAddress'};
+$configuration{'ipAddress'} = $opts{'a'} || $configuration{'ipAddress'};
 
 
 ################################################################################
@@ -118,10 +118,10 @@ sub build_amplifier_control {
                                                             # interpret commands
   foreach $control (keys(%body)) {
     my $value = lc($body{$control});
-    $value =~ s/tv\Z/TV\/CBL/;
-    $value =~ s/aux/V.AUX/;
-    $value =~ s/net\Z/NET\/USB/;
-    $value =~ s/\ausb/NET\/USB/;
+    $value =~ s/\Atv\Z/TV\/CBL/;
+    $value =~ s/\Aaux\Z/V.AUX/;
+    $value =~ s/\Anet\Z/NET\/USB/;
+    $value =~ s/\Ausb\Z/NET\/USB/;
     $value =~ s/pure\Z/PURE DIRECT/i;
     $value =~ s/dolby\Z/DOLBY DIGITAL/i;
     $value =~ s/dts\Z/DTS SURROUND/i;
@@ -290,8 +290,9 @@ my ($client_port, $xpl_socket) = xpl_open_socket($xpl_port, $client_base_port);
 if ($verbose == 1) {
   system("clear");
   print("$separator\n");
-  print("Controlling Denon AVR at $configuration{'ipAddress'}.\n");
-  print($indent, "instance id:   $instance_id\n");
+  print("Controlling Denon AVR at $configuration{'ipAddress'}\n");
+  print($indent, "instance id : $instance_id\n");
+  print($indent, "IP address  : $configuration{'ipAddress'}\n");
   print("$separator\n");
 }
 
@@ -412,6 +413,9 @@ Should have C<value=dd>: decimal value between 0 and 100 or C<value=ask>.
 =item B<surround=mode>
 
 =item B<audio=source>
+Can have C<audio=phono>, C<audio=cd>, C<audio=tuner>, C<audio=dvd>,
+C<audio=hdp>, C<audio=tv>, C<audio=sat>, C<audio=vcr>, C<audio=dvr>,
+C<audio=aux>, C<audio=net>, C<audio=usb> or C<audio=ask>.
 
 =item B<video=source>
 

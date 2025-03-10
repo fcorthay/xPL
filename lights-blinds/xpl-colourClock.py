@@ -326,6 +326,12 @@ division = int(time.strftime("%H"))
 if hand_type == 'minute' :
     division = int(time.strftime("%M"))
 (red, green, blue) = colour_code(division, division_nb)
+if verbose :
+    time = time.strftime("%Hh%M")
+    print("time is %s" % time)
+    print(INDENT + 
+        "setting colour to [%3d, %3d, %3d]" % (red, green, blue)
+    )
 message_body = build_LEDs_colour_message(red, green, blue)
 common.xpl_send_message(
     xpl_socket, common.XPL_PORT,
