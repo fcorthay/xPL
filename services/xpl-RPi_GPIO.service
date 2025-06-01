@@ -1,0 +1,15 @@
+[Unit]
+Description=xPL RPi GPIO
+After=xpl-hub.service pigpiod.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+Environment="GPIOZERO_PIN_FACTORY=pigpio"
+ExecStart=/home/control/Controls/xPL/utilities/xpl-RPi_GPIO.py -o '20,21,23,24,25,26'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
