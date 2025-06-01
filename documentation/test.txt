@@ -1,1 +1,0 @@
-https://www.google.ch/url?sa=t&source=web&rct=j&opi=89978449&url=https://pip.raspberrypi.com/categories/685-whitepapers-app-notes/documents/RP-006553-WP/A-history-of-GPIO-usage-on-Raspberry-Pi-devices-and-current-best-practices.pdf
