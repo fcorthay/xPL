@@ -125,7 +125,6 @@ for index in output_pins :
 timeout = 1;
 last_heartbeat_time = 0;
 last_message_time = 0;
-message_type = 'xpl-stat'
 message_source = "%s-%s.%s" % (VENDOR_ID, DEVICE_ID, instance_id)
 message_target = '*'
 message_class = "%s.basic" % CLASS_ID
@@ -134,6 +133,9 @@ gp_input_values = []
 for index in range(len(gp_inputs)) :
     gp_input_values.append(gp_inputs[index].value)
 gp_input_previous_values = gp_input_values.copy()
+gp_intput_toggles = []
+for index in range(len(gp_inputs)) :
+    gp_intput_toggles.append(0)
 
 while not end :
                                                  # check time and send heartbeat
@@ -180,7 +182,7 @@ while not end :
                                 print("LED %d is %s" % (LED_id, LED_value))
                             common.xpl_send_message(
                                 xpl_socket, common.XPL_PORT,
-                                message_type, message_source,
+                                'xpl-stat', message_source,
                                 message_target, message_class,
                                 {'led': LED_id, 'value': LED_value}
                             );
@@ -190,15 +192,22 @@ while not end :
         gp_input_values[index] = switch_value
         if switch_value != gp_input_previous_values[index] :
             switch_index = input_pins[index]
+            toggle_value = gp_intput_toggles[index]
+            if switch_value == 1 :
+                toggle_value = (toggle_value + 1) % 2
+            gp_intput_toggles[index] = toggle_value
             if verbose :
                 print(
                     "input %d has changed to %d" % (switch_index, switch_value)
                 )
             common.xpl_send_message(
                 xpl_socket, common.XPL_PORT,
-                message_type, message_source,
+                'xpl-trig', message_source,
                 message_target, message_class,
-                {'switch': switch_index, 'value': switch_value}
+                {
+                    'switch': switch_index, 'value': switch_value,
+                    'toggle': toggle_value
+                }
             )
     gp_input_previous_values = gp_input_values.copy()
                                                              # delete xPL socket
