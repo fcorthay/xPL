@@ -1,0 +1,14 @@
+[Unit]
+Description=xPL RPi I2C
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/utilities/xpl-RPi_I2C.py -n audioSwitch
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
