@@ -6,7 +6,8 @@ import os
 import time
 sys.path.append(sys.path[0]+'/../xPL-base')
 import common
-import RPi.GPIO as GPIO
+import gpiozero
+
 # ------------------------------------------------------------------------------
 # constants
 #
@@ -46,6 +47,11 @@ parser.add_argument(
     '-w', '--wait', default=0,
     help = 'the startup sleep interval in seconds'
 )
+                                                                # output pin ids
+parser.add_argument(
+    '-o', '--outputs', default='',
+    help = 'the GPIO pins driven as outputs'
+)
                                                   # parse command line arguments
 parser_arguments = parser.parse_args()
 verbose = parser_arguments.verbose
@@ -53,25 +59,20 @@ Ethernet_base_port = parser_arguments.port
 instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
 startup_delay = int(parser_arguments.wait)
+input_output_pins = range(2, 28)
+output_pins = []
+for pin in parser_arguments.outputs.split(',') :
+    output_pins.append(int(pin))
+input_pins = []
+for index in input_output_pins :
+    if index not in output_pins :
+        input_pins.append(index)
 
-# find pin and GPIO list with the CLI command "pinctrl -p"
-GPIO_start = 2
-GPIO_end = 27
-reserved_pins = [2, 3, 7, 8]
+# find pin list with the CLI command "pinout"
 
 # ==============================================================================
 # Internal functions
 #
-
-# ------------------------------------------------------------------------------
-# set GPIO as output
-#
-def set_as_output(GPIO_id):
-    if GPIO_id in input_GPIOs :
-        input_GPIOs.remove(GPIO_id)
-    if GPIO_id not in output_GPIOs :
-        output_GPIOs.append(GPIO_id)
-    GPIO.setup(GPIO_id, GPIO.OUT)
 
 # ------------------------------------------------------------------------------
 # catch ctrl-C interrupt
@@ -105,6 +106,13 @@ if verbose :
     print(INDENT + "class id    : %s" % CLASS_ID)
     print(INDENT + "instance id : %s" % instance_id)
     print()
+                                                        # build buttons and LEDs
+gp_inputs = []
+gp_outputs = []
+for index in input_pins :
+    gp_inputs.append(gpiozero.Button(index))
+for index in output_pins :
+    gp_outputs.append(gpiozero.LED(index))
 
 # ..............................................................................
                                                                      # main loop
@@ -114,18 +122,14 @@ last_message_time = 0;
 message_source = "%s-%s.%s" % (VENDOR_ID, DEVICE_ID, instance_id)
 message_target = '*'
 message_class = "%s.basic" % CLASS_ID
-                                                                # pin directions
-GPIO.setmode(GPIO.BCM)
-input_GPIOs = []
-GPIO_input_previous_values = {}
-GPIO_input_toggle_values = {}
-for GPIO_id in range(GPIO_start, GPIO_end+1) :
-    if GPIO_id not in reserved_pins :
-        input_GPIOs.append(GPIO_id)
-        GPIO.setup(GPIO_id, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO_input_previous_values[GPIO_id] = GPIO.input(GPIO_id)
-        GPIO_input_toggle_values[GPIO_id] = 0
-output_GPIOs = []
+
+gp_input_values = []
+for index in range(len(gp_inputs)) :
+    gp_input_values.append(gp_inputs[index].value)
+gp_input_previous_values = gp_input_values.copy()
+gp_intput_toggles = []
+for index in range(len(gp_inputs)) :
+    gp_intput_toggles.append(0)
 
 while not end :
                                                  # check time and send heartbeat
@@ -135,6 +139,9 @@ while not end :
     )
                                               # get xpl-UDP message with timeout
     (xpl_message, source_address) = common.xpl_get_message(xpl_socket, timeout);
+    # for index in range(len(gp_outputs)) :
+        # print("%d -> %d" % (index, gp_outputs[index].pin.number))
+        # gp_outputs[index].toggle()
                                                            # process XPL message
     if (xpl_message) :
         (xpl_type, source, target, schema, body) = \
@@ -142,70 +149,67 @@ while not end :
         if schema == CLASS_ID + '.basic' :
             if xpl_type == 'xpl-cmnd' :
                 if common.xpl_is_for_me(xpl_id, target) :
-                                                                       # outputs
-                    output_id = 0
+                                                                          # LEDs
                     if 'led' in body :
-                        output_id = int(body['led'])
-                    if 'output' in body :
-                        output_id = int(body['output'])
-                                                                # output control
-                    if 'set' in body :
-                        output_state = body['set']
-                        if verbose :
-                            print(
-                                "setting LED %d %s" %
-                                (output_id, output_state)
-                            )
-                        set_as_output(output_id)
-                        if output_state == 'on' :
-                            GPIO.output(output_id, GPIO.HIGH)
+                        LED_id = int(body['led'])
+                        if LED_id not in output_pins :
+                            if verbose :
+                                print(
+                                    "Pin %d not in the output pin list"
+                                    % LED_id
+                                )
                         else :
-                            GPIO.output(output_id, GPIO.LOW)
-                                                                  # output state
-                    else :
-                        GPIO_value = GPIO.input(output_id)
-                        if GPIO_value == 0 :
-                            GPIO_value = 'off'
-                        else :
-                            GPIO_value = 'on'
-                        if verbose :
-                            print("LED %d is %s" % (output_id, GPIO_value))
-                        common.xpl_send_message(
-                            xpl_socket, common.XPL_PORT,
-                            'xpl-stat', message_source,
-                            message_target, message_class,
-                            {'led': output_id, 'value': GPIO_value}
-                        );
-                                                                        # inputs
-    GPIO_input_values = {}
-    for GPIO_id in input_GPIOs :
-                                                                    # poll state
-        GPIO_value = GPIO.input(GPIO_id)
-        GPIO_input_values[GPIO_id] = GPIO_value
-        if GPIO_id not in GPIO_input_previous_values :
-            print("New input: %d" % GPIO_id)
-        else :
-                                                                # detect changes
-            if GPIO_value != GPIO_input_previous_values[GPIO_id] :
-                GPIO_input_previous_values[GPIO_id] = GPIO_value
-                if verbose :
-                    print(
-                        "input %d has changed to %d" % (GPIO_id, GPIO_value)
-                    )
-                                                           # update toggle value
-                toggle_value = GPIO_input_toggle_values[GPIO_id]
-                if GPIO_value == 1 :
-                    toggle_value = (toggle_value + 1) % 2
-                    GPIO_input_toggle_values[GPIO_id] = toggle_value
-                                                              # send xPL message
-                common.xpl_send_message(
-                    xpl_socket, common.XPL_PORT,
-                    'xpl-trig', message_source,
-                    message_target, message_class,
-                    {
-                        'switch': GPIO_id, 'value': GPIO_value,
-                        'toggle': toggle_value
-                    }
+                            output_id = output_pins.index(LED_id)
+                                                                   # LED control
+                            if 'set' in body :
+                                set_command = body['set']
+                                if verbose :
+                                    print(
+                                        "setting LED %d %s" %
+                                        (LED_id, set_command)
+                                    )
+                                if set_command == 'on' :
+                                    gp_outputs[output_id].on()
+                                else :
+                                    gp_outputs[output_id].off()
+                                                                    # LED status
+                            else :
+                                LED_value = gp_outputs[output_id].value
+                                if LED_value == 1 :
+                                    LED_value = 'on'
+                                else :
+                                    LED_value = 'off'
+                                if verbose :
+                                    print("LED %d is %s" % (LED_id, LED_value))
+                                common.xpl_send_message(
+                                    xpl_socket, common.XPL_PORT,
+                                    'xpl-stat', message_source,
+                                    message_target, message_class,
+                                    {'led': LED_id, 'value': LED_value}
+                                );
+                                                                       # buttons
+    for index in range(len(gp_inputs)) :
+        switch_value = (gp_inputs[index].value)
+        gp_input_values[index] = switch_value
+        if switch_value != gp_input_previous_values[index] :
+            switch_index = input_pins[index]
+            toggle_value = gp_intput_toggles[index]
+            if switch_value == 1 :
+                toggle_value = (toggle_value + 1) % 2
+            gp_intput_toggles[index] = toggle_value
+            if verbose :
+                print(
+                    "input %d has changed to %d" % (switch_index, switch_value)
                 )
+            common.xpl_send_message(
+                xpl_socket, common.XPL_PORT,
+                'xpl-trig', message_source,
+                message_target, message_class,
+                {
+                    'switch': switch_index, 'value': switch_value,
+                    'toggle': toggle_value
+                }
+            )
+    gp_input_previous_values = gp_input_values.copy()
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)

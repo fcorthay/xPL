@@ -124,9 +124,6 @@ while not end :
     )
                                               # get xpl-UDP message with timeout
     (xpl_message, source_address) = common.xpl_get_message(xpl_socket, timeout);
-    # for index in range(len(gp_outputs)) :
-        # print("%d -> %d" % (index, gp_outputs[index].pin.number))
-        # gp_outputs[index].toggle()
                                                            # process XPL message
     if (xpl_message) :
         (xpl_type, source, target, schema, body) = \
