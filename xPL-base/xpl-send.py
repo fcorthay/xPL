@@ -88,16 +88,16 @@ if not is_OK :
     print("%s is not a valid xPL message type." % message_type);
     sys.exit(1)
                                                       # check xPL message source
-if not re.search("\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z", message_source) :
+if not re.search(r"\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z", message_source) :
     print("%s is not a valid xPL source indentifier." % message_source);
     sys.exit(1)
                                                       # check xPL message target
-if not re.search("\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z", message_target) :
+if not re.search(r"\A(\w|\d)+-(\w|\d)+\.(\w|\d)+\Z", message_target) :
     if message_target != '*' :
         print("%s is not a valid xPL target indentifier." % message_target);
         sys.exit(1)
                                                        # check xPL message class
-if not re.search("\A(\w|\d)+\.(\w|\d)+\Z", message_class) :
+if not re.search(r"\A(\w|\d)+\.(\w|\d)+\Z", message_class) :
     print("%s is not a valid xPL class indentifier." % message_class);
     sys.exit(1)
 
