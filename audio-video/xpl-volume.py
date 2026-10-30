@@ -157,15 +157,16 @@ while not end :
         (xpl_type, source, target, schema, body) = \
             common.xpl_get_message_elements(xpl_message)
         if common.xpl_is_for_me(xpl_id, target) :
+                                                                   # ALSA volume
             if xpl_type == 'xpl-cmnd' :
                 if schema == CLASS_ID + '.basic' :
-                                                                   # ALSA volume
                     if 'volume' in body :
                         volume = int(body['volume'])
                         print("setting volume to %d%%" % volume)
                         update_volume(volume, alsa_card, alsa_volume_control)
                                                                  # knob position
-                elif schema == 'knob.basic' :
+            elif xpl_type == 'xpl-trig' :
+                if schema == 'knob.basic' :
                     position = -1
                     if 'position' in body :
                         position = int(body['position'])

@@ -1,0 +1,13 @@
+[Unit]
+Description=xPL USB attached knob event sender
+After=xpl-hub.service
+
+[Service]
+Type=simple
+User=control
+Group=users
+ExecStart=/home/control/Controls/xPL/audio-video/xpl-knob-serial.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

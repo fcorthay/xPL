@@ -126,7 +126,7 @@ while not end :
         print("%s %s" % (command, value))
         common.xpl_send_message(
             xpl_socket, common.XPL_PORT,
-            'xpl-cmnd', message_source,
+            'xpl-trig', message_source,
             message_target, message_class,
             {
                 command : value,
