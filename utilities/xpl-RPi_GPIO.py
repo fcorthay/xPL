@@ -7,6 +7,7 @@ import time
 sys.path.append(sys.path[0]+'/../xPL-base')
 import common
 import RPi.GPIO as GPIO
+
 # ------------------------------------------------------------------------------
 # constants
 #
