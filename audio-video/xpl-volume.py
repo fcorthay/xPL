@@ -47,10 +47,15 @@ parser.add_argument(
     '-w', '--wait', default=0,
     help = 'the startup sleep interval in seconds'
 )
-                                                             # dial positions nb
+                                                  # maximal value for the volume
 parser.add_argument(
-    '-P', '--dialPositions', default=20,
+    '-V', '--maxVolume', default=100,
     help = 'dial positions number'
+)
+                                              # maximal value for dial positions
+parser.add_argument(
+    '-d', '--maxDial', default=15,
+    help = 'maximal value for dial positions'
 )
                                                              # minimal dB volume
 parser.add_argument(
@@ -74,7 +79,8 @@ Ethernet_base_port = parser_arguments.port
 instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
 startup_delay = int(parser_arguments.wait)
-dial_position_nb = int(parser_arguments.dialPositions)
+maximal_volume = int(parser_arguments.maxVolume)
+maximal_dial_position = int(parser_arguments.maxDial)
 min_db_value = -abs(int(parser_arguments.minDB))
 alsa_card = parser_arguments.amplifierCard
 alsa_volume_control = parser_arguments.volumeControl
@@ -85,13 +91,7 @@ alsa_volume_control = parser_arguments.volumeControl
 
 # ..............................................................................
                                                                 # volume control
-def update_volume(
-    dial_position, dial_position_nb, min_db_value,
-    card, volume_control
-):
-                                                              # calculate volume
-    volume_dB = min_db_value - dial_position*min_db_value/(dial_position_nb-1)
-    volume_for_amixer = 100 + volume_dB
+def update_volume(volume, card, volume_control):
                                                                   # apply volume
     volume_info = subprocess.run(
         [
@@ -100,12 +100,10 @@ def update_volume(
             "hw:%s" % card,
             'sset',
             "%s" % volume_control,
-            "%d%%" % volume_for_amixer
+            "%d%%" % volume
         ],
         capture_output=True, text=True
     )
-
-    return(volume_for_amixer)
 
 # ------------------------------------------------------------------------------
 # catch ctrl-C interrupt
@@ -159,15 +157,33 @@ while not end :
         (xpl_type, source, target, schema, body) = \
             common.xpl_get_message_elements(xpl_message)
         if common.xpl_is_for_me(xpl_id, target) :
-            if schema == CLASS_ID + '.basic' :
-                if xpl_type == 'xpl-cmnd' :
+            if xpl_type == 'xpl-cmnd' :
+                if schema == CLASS_ID + '.basic' :
+                                                                   # ALSA volume
                     if 'volume' in body :
                         volume = int(body['volume'])
-                        print("volume : %d" % volume)
-                                                                   # ALSA volume
-                        volume = update_volume(
-                            user_position, dial_position_nb, min_db_value,
-                            alsa_card, alsa_volume_control
+                        print("setting volume to %d%%" % volume)
+                        update_volume(volume, alsa_card, alsa_volume_control)
+                                                                 # knob position
+                elif schema == 'knob.basic' :
+                    position = -1
+                    if 'position' in body :
+                        position = int(body['position'])
+                    maximal_position = maximal_dial_position
+                    if 'max' in body :
+                        maximal_position = int(body['max'])
+                    if position >= 0 :
+                        volume_relative = position/maximal_position
+                        volume_dB = min_db_value - volume_relative*min_db_value
+                        volume_for_amixer = int(100 + volume_dB)
+                        if verbose :
+                            print("dial position %d" % position)
+                            print(
+                                INDENT + \
+                                "setting volume to %d%%" % volume_for_amixer
+                            )
+                        update_volume(
+                            volume_for_amixer, alsa_card, alsa_volume_control
                         )
                                                              # delete xPL socket
 common.xpl_disconnect(xpl_socket, xpl_id, xpl_ip, client_port)

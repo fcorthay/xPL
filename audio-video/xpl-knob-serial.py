@@ -52,9 +52,14 @@ parser.add_argument(
     '-y', '--tty', default='/dev/ttyACM1',
     help = 'the serial port receiving commands'
 )
+                                              # maximal value for dial positions
+parser.add_argument(
+    '-m', '--maxDial', default=15,
+    help = 'maximal value for dial positions'
+)
                                                        # target for xPL messages
 parser.add_argument(
-    '-d', '--destination', default=os.uname()[1],
+    '-d', '--destination', default="dspc-volume.%s" % os.uname()[1],
     help = 'the serial port receiving commands'
 )
                                                   # parse command line arguments
@@ -65,7 +70,8 @@ instance_id = parser_arguments.id
 heartbeat_interval = int(parser_arguments.timer)
 startup_delay = int(parser_arguments.wait)
 serial_port = parser_arguments.tty
-message_target = 'dspc-volume.' + parser_arguments.destination
+maximal_dial_position = int(parser_arguments.maxDial)
+message_target = parser_arguments.destination
 
 # ==============================================================================
 # Internal functions
@@ -110,7 +116,7 @@ if verbose :
                                                                      # main loop
 timeout = 1;
 message_source = "%s-%s.%s" % (VENDOR_ID, DEVICE_ID, instance_id)
-message_class = 'volume.basic'
+message_class = '%s.basic' % CLASS_ID
 knob_serial = serial.Serial(serial_port, timeout=0.001)
 
 while not end :
@@ -123,7 +129,8 @@ while not end :
             'xpl-cmnd', message_source,
             message_target, message_class,
             {
-                command : value
+                command : value,
+                'max'   : str(maximal_dial_position)
             }
         )
                                                              # delete xPL socket
